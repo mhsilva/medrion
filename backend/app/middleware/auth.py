@@ -1,7 +1,5 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
-from app.config import settings
 from app.database import db
 
 security = HTTPBearer()
@@ -10,10 +8,6 @@ security = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """
-    Validate Supabase JWT Bearer token and return user dict with
-    user_id, email, and role fetched from public.users.
-    """
     token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -22,22 +16,16 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-    except JWTError:
+        response = db.auth.get_user(token)
+        supabase_user = response.user
+        if not supabase_user:
+            raise credentials_exception
+    except Exception:
         raise credentials_exception
 
-    user_id: str = payload.get("sub")
-    email: str = payload.get("email", "")
+    user_id = supabase_user.id
+    email = supabase_user.email or ""
 
-    if not user_id:
-        raise credentials_exception
-
-    # Fetch role from public.users table
     try:
         result = (
             db.table("users")
@@ -63,7 +51,6 @@ async def get_current_user(
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    """Require the authenticated user to have role='admin'."""
     if current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
