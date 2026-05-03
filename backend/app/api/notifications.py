@@ -7,7 +7,7 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("")
-async def get_notifications(current_user: dict = Depends(get_current_user)) -> dict:
+async def get_notifications(current_user: dict = Depends(get_current_user)) -> list:
     user_id = current_user["user_id"]
     result = (
         db.table("notifications")
