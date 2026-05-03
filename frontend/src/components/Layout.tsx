@@ -109,7 +109,7 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     notificationsApi
       .getNotifications()
-      .then(setNotifications)
+      .then(data => setNotifications(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [])
 

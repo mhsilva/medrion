@@ -17,7 +17,7 @@ async def get_notifications(current_user: dict = Depends(get_current_user)) -> d
         .order("created_at", desc=True)
         .execute()
     )
-    return {"notifications": result.data or []}
+    return result.data or []
 
 
 @router.post("/{notification_id}/read")
