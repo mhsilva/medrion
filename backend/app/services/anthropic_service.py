@@ -176,7 +176,17 @@ async def generate_prescription(
         ]
 
     actives_text = _format_actives(filtered_actives)
-    full_system = SYSTEM_PROMPT + "\n\n" + doctor_prefs_text + "\n\n" + actives_text
+    system_blocks = [
+        {
+            "type": "text",
+            "text": SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        },
+        {
+            "type": "text",
+            "text": doctor_prefs_text + "\n\n" + actives_text,
+        },
+    ]
 
     # Build patient context block
     patient_lines = ["DADOS DO PACIENTE:"]
@@ -249,9 +259,9 @@ async def generate_prescription(
         messages = [{"role": "user", "content": user_message_content}]
 
     response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         max_tokens=8000,
-        system=full_system,
+        system=system_blocks,
         messages=messages,
     )
 
