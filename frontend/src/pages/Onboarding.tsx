@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usersApi, uploadLogo } from '../services/api'
 import { Button } from '../components/ui/Button'
-import { Input, Select } from '../components/ui/Input'
+import { Input, Select, PhoneInput } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { UF_LIST } from '../utils/format'
 import type { PrescriptionHeader } from '../types'
@@ -153,13 +153,11 @@ function Step1({ onNext }: { onNext: (data: Step1Data) => Promise<void> }) {
           placeholder="Medicina do Esporte"
         />
 
-        <Input
+        <PhoneInput
           label="Telefone"
-          type="tel"
           name="phone"
           value={form.phone}
-          onChange={set('phone')}
-          placeholder="(11) 99999-9999"
+          onChange={v => setForm(prev => ({ ...prev, phone: v }))}
         />
       </div>
 
@@ -393,13 +391,11 @@ function Step2({
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Input
+          <PhoneInput
             label="Telefone de contato"
-            type="tel"
             name="header_phone"
             value={form.phone}
-            onChange={set('phone')}
-            placeholder="(11) 3333-4444"
+            onChange={v => setForm(prev => ({ ...prev, phone: v }))}
           />
           <Input
             label="E-mail de contato"

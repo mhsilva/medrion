@@ -71,6 +71,62 @@ export function Textarea({ label, error, hint, className = '', ...props }: Texta
   )
 }
 
+interface PhoneInputProps {
+  label?: string
+  error?: string
+  hint?: string
+  name?: string
+  value: string
+  onChange: (value: string) => void
+  required?: boolean
+  placeholder?: string
+}
+
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 10) {
+    // (XX) XXXX-XXXX
+    return digits
+      .replace(/^(\d{0,2})/, '($1')
+      .replace(/^(\(\d{2})(\d)/, '$1) $2')
+      .replace(/(\d{4})(\d{1,4})$/, '$1-$2')
+  }
+  // (XX) XXXXX-XXXX
+  return digits
+    .replace(/^(\d{0,2})/, '($1')
+    .replace(/^(\(\d{2})(\d)/, '$1) $2')
+    .replace(/(\d{5})(\d{1,4})$/, '$1-$2')
+}
+
+export function PhoneInput({ label, error, hint, name, value, onChange, required, placeholder }: PhoneInputProps) {
+  const id = name
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(maskPhone(e.target.value))
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      {label && (
+        <label htmlFor={id} className="text-sm font-medium text-gray-700">
+          {label}
+          {required && <span className="text-danger ml-1">*</span>}
+        </label>
+      )}
+      <input
+        id={id}
+        name={name}
+        type="tel"
+        inputMode="numeric"
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder || '(11) 99999-9999'}
+        className={error ? errorInputClasses : baseInputClasses}
+      />
+      {hint && !error && <p className="text-xs text-gray-500">{hint}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
 export function Select({ label, error, hint, children, className = '', ...props }: SelectProps) {
   const id = props.id || props.name
   return (

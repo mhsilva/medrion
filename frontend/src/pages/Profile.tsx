@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { usersApi } from '../services/api'
 import { Button } from '../components/ui/Button'
-import { Input, Select } from '../components/ui/Input'
+import { Input, Select, PhoneInput } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { useToast } from '../components/ui/Toast'
@@ -172,8 +172,8 @@ export default function Profile() {
           <div className="space-y-4">
             <Input label="Nome" name="p_name" value={personal.name}
               onChange={e => setPersonal(p => ({ ...p, name: e.target.value }))} required />
-            <Input label="Telefone" type="tel" name="p_phone" value={personal.phone}
-              onChange={e => setPersonal(p => ({ ...p, phone: e.target.value }))} placeholder="(11) 99999-9999" />
+            <PhoneInput label="Telefone" name="p_phone" value={personal.phone}
+              onChange={v => setPersonal(p => ({ ...p, phone: v }))} />
             <Input label="Especialidade" name="p_specialty" value={personal.specialty}
               onChange={e => setPersonal(p => ({ ...p, specialty: e.target.value }))} />
           </div>
@@ -227,8 +227,8 @@ export default function Profile() {
             <Input label="Endereco" name="h_address" value={header.address}
               onChange={e => setHeader(h => ({ ...h, address: e.target.value }))} />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Telefone" type="tel" name="h_phone" value={header.phone}
-                onChange={e => setHeader(h => ({ ...h, phone: e.target.value }))} />
+              <PhoneInput label="Telefone" name="h_phone" value={header.phone}
+                onChange={v => setHeader(h => ({ ...h, phone: v }))} />
               <Input label="E-mail" type="email" name="h_email" value={header.email}
                 onChange={e => setHeader(h => ({ ...h, email: e.target.value }))} />
             </div>
