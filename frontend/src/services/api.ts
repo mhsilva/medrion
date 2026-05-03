@@ -127,7 +127,7 @@ export const patientsApi = {
 
 export const examsApi = {
   getExams: (patientId: string) =>
-    request<ExamResult[]>(`/patients/${patientId}/exams`),
+    request<ExamResult[]>(`/exams/${patientId}`),
 
   createExam: (data: {
     patient_id: string
@@ -187,7 +187,7 @@ export const examsApi = {
 
 export const prescriptionsApi = {
   getPrescriptions: (patientId: string) =>
-    request<Prescription[]>(`/patients/${patientId}/prescriptions`),
+    request<Prescription[]>(`/prescriptions?patient_id=${patientId}`),
 
   generatePrescription: (data: {
     patient_id: string
