@@ -153,7 +153,7 @@ async def generate_new_prescription(
 
     # 3. Fetch recent exams for this patient (last 5)
     exams_result = (
-        db.table("exams")
+        db.table("exam_results")
         .select("*")
         .eq("patient_id", str(data.patient_id))
         .order("created_at", desc=True)
