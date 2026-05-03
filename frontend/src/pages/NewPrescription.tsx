@@ -220,7 +220,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
-function Step3View({ prescription, patient, onUpdate }: Step3Props) {
+export function Step3View({ prescription, patient, onUpdate }: Step3Props) {
   const toast = useToast()
   const [content, setContent] = useState(prescription.edited_output || prescription.output_text || '')
   const [saving, setSaving] = useState(false)

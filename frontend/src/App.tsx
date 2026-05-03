@@ -14,6 +14,7 @@ import NewPatient from './pages/NewPatient'
 import PatientDetail from './pages/PatientDetail'
 import Exams from './pages/Exams'
 import NewPrescription from './pages/NewPrescription'
+import PrescriptionDetail from './pages/PrescriptionDetail'
 import Profile from './pages/Profile'
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,14 @@ export default function App() {
             element={
               <ProtectedLayout>
                 <NewPrescription />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/prescricoes/:id"
+            element={
+              <ProtectedLayout>
+                <PrescriptionDetail />
               </ProtectedLayout>
             }
           />
