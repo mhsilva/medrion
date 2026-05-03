@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import { supabase } from '../services/supabase'
 import { usersApi } from '../services/api'
@@ -31,7 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profileLoading: false,
   })
 
-  const fetchProfile = useCallback(async () => {
+  // tracks which user ID we already fetched — prevents duplicate calls
+  const fetchedForRef = useRef<string | null>(null)
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    if (fetchedForRef.current === userId) return
+    fetchedForRef.current = userId
     setState(prev => ({ ...prev, profileLoading: true }))
     try {
       const profile = await usersApi.getProfile()
@@ -53,10 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           loading: false,
         }))
 
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          if (session) fetchProfile()
-          else setState(prev => ({ ...prev, profile: null }))
+        if (session) {
+          fetchProfile(session.user.id)
         } else if (event === 'SIGNED_OUT') {
+          fetchedForRef.current = null
           setState(prev => ({ ...prev, profile: null }))
         }
         // TOKEN_REFRESHED, USER_UPDATED, etc. → não rebusca perfil
@@ -95,7 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ ...state, signInWithEmail, signInWithGoogle, signUpWithEmail, signOut, refreshProfile: fetchProfile }}>
+    <AuthContext.Provider value={{
+      ...state,
+      signInWithEmail,
+      signInWithGoogle,
+      signUpWithEmail,
+      signOut,
+      refreshProfile: async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          fetchedForRef.current = null
+          await fetchProfile(session.user.id)
+        }
+      },
+    }}>
       {children}
     </AuthContext.Provider>
   )
