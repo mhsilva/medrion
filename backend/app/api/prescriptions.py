@@ -98,25 +98,7 @@ def _check_trial_limit(user_row: Optional[dict]) -> None:
 
 
 def _increment_trial_usage(user_id: str) -> None:
-    """Atomically increment trial_prescriptions_used for trial users."""
-    try:
-        db.rpc(
-            "increment_trial_prescriptions",
-            {"p_user_id": user_id},
-        ).execute()
-    except Exception:
-        # Fallback: manual read-increment-write (not perfectly atomic but acceptable)
-        result = (
-            db.table("users")
-            .select("trial_prescriptions_used")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
-        current = (result.data or {}).get("trial_prescriptions_used", 0) or 0
-        db.table("users").update(
-            {"trial_prescriptions_used": current + 1}
-        ).eq("id", user_id).execute()
+    db.rpc("increment_trial_prescriptions", {"p_user_id": user_id}).execute()
 
 
 @router.get("", response_model=list[PrescriptionResponse])
