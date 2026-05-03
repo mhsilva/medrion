@@ -370,6 +370,14 @@ async def download_prescription(
     patient_name = (patient.get("name") or "paciente").replace(" ", "_")
     filename = f"Prescricao_{patient_name}_{prescription_id[:8]}.docx"
 
+    try:
+        storage_path = upload_docx(docx_bytes, filename, user_id)
+        db.table("prescriptions").update(
+            {"docx_url": storage_path, "updated_at": datetime.utcnow().isoformat()}
+        ).eq("id", prescription_id).execute()
+    except Exception:
+        pass  # storage failure não bloqueia o download
+
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

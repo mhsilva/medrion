@@ -25,7 +25,7 @@ def upload_docx(file_bytes: bytes, filename: str, user_id: str) -> str:
     unique_id = str(uuid.uuid4())[:8]
     path = f"{user_id}/{timestamp}_{unique_id}_{filename}"
 
-    db.storage.from_("prescriptions").upload(
+    db.storage.from_("prescription").upload(
         path=path,
         file=file_bytes,
         file_options={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
@@ -48,7 +48,7 @@ def get_signed_url(path: str, expires_in: int = 3600) -> str:
     if path.startswith("exams/") or path.startswith("uploads/"):
         bucket = "uploads"
     else:
-        bucket = "prescriptions"
+        bucket = "prescription"
 
     response = db.storage.from_(bucket).create_signed_url(path, expires_in)
     return response.get("signedURL") or response.get("signed_url") or ""
