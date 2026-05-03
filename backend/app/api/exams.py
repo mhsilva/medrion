@@ -87,7 +87,7 @@ async def list_exams(
     _verify_patient_belongs_to_user(patient_id, current_user["user_id"])
 
     result = (
-        db.table("exams")
+        db.table("exam_results")
         .select("*")
         .eq("patient_id", patient_id)
         .order("created_at", desc=True)
@@ -121,7 +121,7 @@ async def create_exam(
         "raw_text": data.raw_text,
     }
 
-    result = db.table("exams").insert(exam_record).execute()
+    result = db.table("exam_results").insert(exam_record).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -235,7 +235,7 @@ async def confirm_exam(
     if storage_path:
         exam_record["file_url"] = storage_path
 
-    result = db.table("exams").insert(exam_record).execute()
+    result = db.table("exam_results").insert(exam_record).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -251,7 +251,7 @@ async def get_exam(
 ) -> Any:
     """Get a specific exam by ID (verifies patient ownership)."""
     result = (
-        db.table("exams").select("*").eq("id", exam_id).single().execute()
+        db.table("exam_results").select("*").eq("id", exam_id).single().execute()
     )
     if not result.data:
         raise HTTPException(
