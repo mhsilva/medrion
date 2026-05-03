@@ -79,7 +79,7 @@ export default function Dashboard() {
       }
     }
     load()
-  }, [toast])
+  }, []) // toast excluído intencionalmente — referência instável causava loop
 
   const greeting = getGreeting()
   const doctorName = profile?.name?.split(' ')[0] || 'Doutor(a)'

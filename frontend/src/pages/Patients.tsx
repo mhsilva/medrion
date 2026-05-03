@@ -26,7 +26,7 @@ export default function Patients() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, []) // toast excluído intencionalmente — referência instável causava loop
 
   useEffect(() => {
     loadPatients()

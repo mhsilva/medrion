@@ -520,7 +520,9 @@ export default function NewPrescription() {
       }
     }
     load()
-  }, [patientId, toast])
+  }, [patientId) // toast excluído — referência instável
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ])
 
   const handleGenerate = useCallback(async (extraContext: string) => {
     if (!patientId) return
@@ -537,7 +539,9 @@ export default function NewPrescription() {
       toast.error(msg)
       setStep(1)
     }
-  }, [patientId, toast])
+  }, [patientId) // toast excluído — referência instável
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ])
 
   if (loading) {
     return (

@@ -70,7 +70,7 @@ export default function PatientDetail() {
     } finally {
       setLoading(false)
     }
-  }, [id, toast])
+  }, [id]) // toast excluído intencionalmente — referência instável causava loop
 
   useEffect(() => { load() }, [load])
 
@@ -213,9 +213,9 @@ export default function PatientDetail() {
                   </div>
                   <Select label="Genero" name="gender" value={editForm.gender || ''} onChange={setField('gender')}>
                     <option value="">Selecione</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Feminino">Feminino</option>
-                    <option value="Outro">Outro</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                    <option value="outro">Outro</option>
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

@@ -420,7 +420,9 @@ export default function Exams() {
       }
     }
     load()
-  }, [patientId, toast])
+  }, [patientId) // toast excluído — referência instável
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ])
 
   if (loading) return <div className="flex justify-center py-16"><LoadingSpinner /></div>
 
