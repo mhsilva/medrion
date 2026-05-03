@@ -12,7 +12,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
-from docx.util import Pt as DocxPt
 
 
 def _set_cell_background(cell, fill_color: str) -> None:
@@ -49,8 +48,8 @@ def _add_alert_paragraph(doc: Document, text: str) -> None:
     _set_left_border(cell, "CC0000", 36)
     para = cell.paragraphs[0]
     para.paragraph_format.left_indent = Cm(0.3)
-    para.paragraph_format.space_before = DocxPt(4)
-    para.paragraph_format.space_after = DocxPt(4)
+    para.paragraph_format.space_before = Pt(4)
+    para.paragraph_format.space_after = Pt(4)
     run = para.add_run(text)
     run.font.name = "Calibri"
     run.font.size = Pt(10)
@@ -62,8 +61,8 @@ def _add_alert_paragraph(doc: Document, text: str) -> None:
 def _add_section_paragraph(doc: Document, text: str) -> None:
     """Add a regular prescription body paragraph."""
     para = doc.add_paragraph()
-    para.paragraph_format.space_before = DocxPt(2)
-    para.paragraph_format.space_after = DocxPt(2)
+    para.paragraph_format.space_before = Pt(2)
+    para.paragraph_format.space_after = Pt(2)
     run = para.add_run(text)
     run.font.name = "Calibri"
     run.font.size = Pt(11)
