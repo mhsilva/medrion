@@ -428,10 +428,15 @@ export function Step3View({ prescription, patient, onUpdate }: Step3Props) {
           {/* Alertas */}
           {alertas.length > 0 && (
             <Card>
-              <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">
-                Alertas de Seguranca
-              </h3>
-              <div className="space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-danger uppercase tracking-wide">
+                  Alertas de Seguranca
+                </h3>
+                <span className="text-xs font-semibold text-white bg-danger rounded-full px-2 py-0.5">
+                  {alertas.length}
+                </span>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {alertas.map((a, i) => (
                   <div key={i} className="alerta-block text-sm">
                     {a}
