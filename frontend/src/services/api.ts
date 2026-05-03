@@ -203,7 +203,7 @@ export const prescriptionsApi = {
 
   updatePrescription: (id: string, data: Partial<Prescription>) =>
     request<Prescription>(`/prescriptions/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     }),
 
