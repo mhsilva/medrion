@@ -26,21 +26,29 @@ function extractAlertas(text: string): string[] {
   return (text.match(regex) || []).map(a => a.replace(/\[ALERTA\]\s*/i, '').trim())
 }
 
+function bold(s: string): string {
+  return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+}
+
 function renderPrescriptionHtml(text: string): string {
   if (!text) return ''
-  const lines = text.split('\n')
-  return lines
+  // Already HTML — pass through directly (e.g. saved via Tiptap)
+  if (text.trimStart().startsWith('<')) return text
+  return text
+    .split('\n')
     .map(line => {
       if (/\[ALERTA\]/i.test(line)) {
-        const content = line.replace(/\[ALERTA\]\s*/i, '').trim()
+        const content = bold(line.replace(/\[ALERTA\]\s*/i, '').trim())
         return `<div class="alerta-block">[ALERTA] ${content}</div>`
       }
-      if (line.startsWith('### ')) return `<h3>${line.slice(4)}</h3>`
-      if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`
-      if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`
-      if (line.startsWith('**') && line.endsWith('**')) return `<h3>${line.slice(2, -2)}</h3>`
-      if (line.trim() === '') return '<p>&nbsp;</p>'
-      return `<p>${line}</p>`
+      if (line.startsWith('### ')) return `<h3>${bold(line.slice(4))}</h3>`
+      if (line.startsWith('## ')) return `<h2>${bold(line.slice(3))}</h2>`
+      if (line.startsWith('# ')) return `<h1>${bold(line.slice(2))}</h1>`
+      // Whole-line **bold** → section heading
+      if (/^\*\*[^*]+\*\*$/.test(line.trim())) return `<h3>${line.trim().slice(2, -2)}</h3>`
+      if (line.trim() === '---') return '<hr>'
+      if (line.trim() === '') return '<p></p>'
+      return `<p>${bold(line)}</p>`
     })
     .join('')
 }

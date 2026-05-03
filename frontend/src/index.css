@@ -95,6 +95,12 @@
     font-weight: 600;
   }
 
+  .ProseMirror hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 12px 0;
+  }
+
   .ProseMirror .alerta-block {
     border-left: 4px solid #C0392B;
     background-color: #FFF0F0;
