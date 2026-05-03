@@ -102,13 +102,13 @@ async def create_patient(
     if "birth_date" in patient_data and isinstance(patient_data["birth_date"], date):
         patient_data["birth_date"] = patient_data["birth_date"].isoformat()
 
-    result = db.table("patients").insert(patient_data).select().single().execute()
+    result = db.table("patients").insert(patient_data).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create patient",
         )
-    return _enrich_patient(result.data)
+    return _enrich_patient(result.data[0])
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -139,14 +139,8 @@ async def update_patient(
         update_data["birth_date"] = update_data["birth_date"].isoformat()
     update_data["updated_at"] = datetime.utcnow().isoformat()
 
-    result = (
-        db.table("patients")
-        .update(update_data)
-        .eq("id", patient_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("patients").update(update_data).eq("id", patient_id).execute()
+    result = db.table("patients").select("*").eq("id", patient_id).single().execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

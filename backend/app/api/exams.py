@@ -121,13 +121,13 @@ async def create_exam(
         "raw_text": data.raw_text,
     }
 
-    result = db.table("exams").insert(exam_record).select().single().execute()
+    result = db.table("exams").insert(exam_record).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create exam",
         )
-    return result.data
+    return result.data[0]
 
 
 @router.post("/upload")
@@ -235,13 +235,13 @@ async def confirm_exam(
     if storage_path:
         exam_record["file_url"] = storage_path
 
-    result = db.table("exams").insert(exam_record).select().single().execute()
+    result = db.table("exams").insert(exam_record).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save exam",
         )
-    return result.data
+    return result.data[0]
 
 
 @router.get("/detail/{exam_id}", response_model=ExamResponse)

@@ -99,13 +99,13 @@ async def create_active(
     active_data = data.model_dump(exclude_none=True)
     active_data.setdefault("status", "draft")
 
-    result = db.table("actives").insert(active_data).select().single().execute()
+    result = db.table("actives").insert(active_data).execute()
     if not result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create active substance",
         )
-    return result.data
+    return result.data[0]
 
 
 @router.put("/actives/{active_id}")
