@@ -118,9 +118,12 @@ export const patientsApi = {
 
   updatePatient: (id: string, data: Partial<Patient>) =>
     request<Patient>(`/patients/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  deletePatient: (id: string) =>
+    request<void>(`/patients/${id}`, { method: 'DELETE' }),
 }
 
 // ─── Exams ────────────────────────────────────────────────────────────────────

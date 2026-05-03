@@ -12,6 +12,38 @@ import type { Patient, Prescription, ExamResult } from '../types'
 
 type TabKey = 'dados' | 'exames' | 'prescricoes'
 
+function ExamModal({ exam, onClose }: { exam: ExamResult; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-800">
+              {exam.input_method === 'upload' ? 'Upload' : exam.input_method === 'form' ? 'Formulario' : 'Texto livre'}
+            </span>
+            <span className="text-xs text-gray-400">{formatDate(exam.created_at)}</span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4 flex-1">
+          {exam.raw_text ? (
+            <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">{exam.raw_text}</pre>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-8">Sem texto disponivel.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -49,7 +81,10 @@ export default function PatientDetail() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [editForm, setEditForm] = useState<Partial<Patient>>({})
+  const [selectedExam, setSelectedExam] = useState<ExamResult | null>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -99,6 +134,21 @@ export default function PatientDetail() {
       toast.error(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!id) return
+    setDeleting(true)
+    try {
+      await patientsApi.deletePatient(id)
+      toast.success('Paciente removido.')
+      navigate('/pacientes')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao deletar paciente'
+      toast.error(msg)
+      setDeleting(false)
+      setConfirmDelete(false)
     }
   }
 
@@ -159,11 +209,43 @@ export default function PatientDetail() {
               <p className="text-sm text-gray-600 mt-2 max-w-lg">{patient.therapeutic_objective}</p>
             )}
           </div>
-          <Button onClick={() => navigate(`/prescricoes/nova/${patient.id}`)}>
-            + Nova prescricao
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </Button>
+            <Button onClick={() => navigate(`/prescricoes/nova/${patient.id}`)}>
+              + Nova prescricao
+            </Button>
+          </div>
         </div>
       </Card>
+
+      {/* Modal de confirmacao de delete */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Deletar paciente?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Isso vai remover <strong>{patient.name}</strong> e todos os exames e prescricoes vinculados. Essa acao nao pode ser desfeita.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                loading={deleting}
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+              >
+                Deletar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200 -mb-1">
@@ -278,9 +360,13 @@ export default function PatientDetail() {
           ) : (
             <div className="space-y-3">
               {exams.map(exam => (
-                <Card key={exam.id}>
+                <Card
+                  key={exam.id}
+                  className="cursor-pointer hover:shadow-card-hover transition-shadow"
+                  onClick={() => setSelectedExam(exam)}
+                >
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <Badge variant="info">
                           {exam.input_method === 'upload' ? 'Upload' : exam.input_method === 'form' ? 'Formulario' : 'Texto livre'}
@@ -288,14 +374,18 @@ export default function PatientDetail() {
                         <span className="text-xs text-gray-400">{formatDate(exam.created_at)}</span>
                       </div>
                       {exam.raw_text && (
-                        <p className="text-xs text-gray-600 mt-2 line-clamp-3">{exam.raw_text.slice(0, 200)}...</p>
+                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{exam.raw_text.slice(0, 180)}…</p>
                       )}
                     </div>
+                    <svg className="w-4 h-4 text-gray-300 ml-3 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
                 </Card>
               ))}
             </div>
           )}
+          {selectedExam && <ExamModal exam={selectedExam} onClose={() => setSelectedExam(null)} />}
         </div>
       )}
 

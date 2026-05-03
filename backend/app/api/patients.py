@@ -154,9 +154,9 @@ async def delete_patient(
     patient_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> None:
-    """Soft-delete a patient (sets deleted_at timestamp, only if owned by current doctor)."""
+    """Hard-delete a patient and all related data (exams, prescriptions)."""
     _verify_patient_ownership(patient_id, current_user["user_id"])
 
-    db.table("patients").update(
-        {"deleted_at": datetime.utcnow().isoformat()}
-    ).eq("id", patient_id).execute()
+    db.table("exam_results").delete().eq("patient_id", patient_id).execute()
+    db.table("prescriptions").delete().eq("patient_id", patient_id).execute()
+    db.table("patients").delete().eq("id", patient_id).execute()
