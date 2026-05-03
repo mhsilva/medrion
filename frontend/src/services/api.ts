@@ -10,7 +10,7 @@ import type {
   ChatMessage,
 } from '../types'
 
-const API_URL = import.meta.env.VITE_API_URL as string || 'http://localhost:8000'
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession()
@@ -25,6 +25,8 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  if (!API_URL) throw new Error('VITE_API_URL não configurado')
+
   const headers = await getAuthHeaders()
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -37,8 +39,11 @@ async function request<T>(
   if (!res.ok) {
     let errorMessage = `Erro ${res.status}`
     try {
-      const body = await res.json()
-      errorMessage = body.detail || body.message || errorMessage
+      const contentType = res.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json')) {
+        const body = await res.json()
+        errorMessage = body.detail || body.message || errorMessage
+      }
     } catch {
       // ignore parse error
     }
@@ -46,6 +51,12 @@ async function request<T>(
   }
 
   if (res.status === 204) return undefined as T
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    throw new Error('Resposta inesperada do servidor')
+  }
+
   return res.json() as Promise<T>
 }
 

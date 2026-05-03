@@ -9,6 +9,7 @@ interface AuthState {
   profile: User | null
   session: Session | null
   loading: boolean
+  profileLoading: boolean
 }
 
 interface AuthActions {
@@ -25,15 +26,16 @@ export function useAuth(): AuthState & AuthActions {
     profile: null,
     session: null,
     loading: true,
+    profileLoading: false,
   })
 
   const fetchProfile = useCallback(async () => {
+    setState(prev => ({ ...prev, profileLoading: true }))
     try {
       const profile = await usersApi.getProfile()
-      setState(prev => ({ ...prev, profile }))
+      setState(prev => ({ ...prev, profile, profileLoading: false }))
     } catch {
-      // Profile might not exist yet (new user)
-      setState(prev => ({ ...prev, profile: null }))
+      setState(prev => ({ ...prev, profile: null, profileLoading: false }))
     }
   }, [])
 

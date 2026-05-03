@@ -8,13 +8,13 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, profileLoading } = useAuth()
 
-  if (loading) return <PageLoader />
+  if (loading || profileLoading) return <PageLoader />
 
   if (!session) return <Navigate to="/login" replace />
 
-  if (session && profile && !profile.onboarding_completed) {
+  if (profile && !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />
   }
 
