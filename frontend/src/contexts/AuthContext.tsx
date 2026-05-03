@@ -42,29 +42,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(prev => ({
-        ...prev,
-        session,
-        user: session?.user ?? null,
-        loading: false,
-      }))
-      if (session) fetchProfile()
-    })
-
+    // onAuthStateChange fires INITIAL_SESSION on mount — use it as the
+    // single source of truth so we don't double-fetch with getSession()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (event, session) => {
         setState(prev => ({
           ...prev,
           session,
           user: session?.user ?? null,
           loading: false,
         }))
-        if (session) {
-          fetchProfile()
-        } else {
+
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (session) fetchProfile()
+          else setState(prev => ({ ...prev, profile: null }))
+        } else if (event === 'SIGNED_OUT') {
           setState(prev => ({ ...prev, profile: null }))
         }
+        // TOKEN_REFRESHED, USER_UPDATED, etc. → não rebusca perfil
       }
     )
 
