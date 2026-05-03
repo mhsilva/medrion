@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin import router as admin_router
 from app.api.exams import router as exams_router
+from app.api.notifications import router as notifications_router
 from app.api.patients import router as patients_router
 from app.api.prescriptions import router as prescriptions_router
 from app.api.users import router as users_router
@@ -50,7 +51,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 app.include_router(webhook_router)
-app.include_router(users_router, prefix="/users")
+app.include_router(users_router)
+app.include_router(notifications_router)
 app.include_router(patients_router)
 app.include_router(exams_router)
 app.include_router(prescriptions_router)
