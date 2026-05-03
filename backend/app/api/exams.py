@@ -231,7 +231,13 @@ async def confirm_exam(
         "raw_text": raw_text,
     }
     if file_type:
-        exam_record["file_type"] = file_type
+        mime_map = {
+            "application/pdf": "pdf",
+            "image/jpeg": "image", "image/jpg": "image",
+            "image/png": "image", "image/gif": "image", "image/webp": "image",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+        }
+        exam_record["file_type"] = mime_map.get(file_type, file_type)
     if storage_path:
         exam_record["file_url"] = storage_path
 
