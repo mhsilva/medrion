@@ -209,19 +209,13 @@ async def generate_new_prescription(
         "status": "generating",
         "output_text": None,
     }
-    insert_result = (
-        db.table("prescriptions")
-        .insert(prescription_insert)
-        .select()
-        .single()
-        .execute()
-    )
+    insert_result = db.table("prescriptions").insert(prescription_insert).execute()
     if not insert_result.data:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create prescription record",
         )
-    prescription_id = insert_result.data["id"]
+    prescription_id = insert_result.data[0]["id"]
 
     # 9. Generate with Claude
     try:
@@ -244,20 +238,14 @@ async def generate_new_prescription(
         )
 
     # 10. Update prescription with output
-    update_result = (
-        db.table("prescriptions")
-        .update(
-            {
-                "output_text": output_text,
-                "status": "draft",
-                "updated_at": datetime.utcnow().isoformat(),
-            }
-        )
-        .eq("id", prescription_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("prescriptions").update(
+        {
+            "output_text": output_text,
+            "status": "draft",
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    ).eq("id", prescription_id).execute()
+    update_result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
 
     # 11. Increment trial usage
     if (user_row or {}).get("subscription_status") == "trial":
@@ -275,19 +263,13 @@ async def update_prescription(
     """Save doctor's manual edits to a prescription."""
     _verify_prescription_ownership(prescription_id, current_user["user_id"])
 
-    result = (
-        db.table("prescriptions")
-        .update(
-            {
-                "edited_output": updates.edited_output,
-                "updated_at": datetime.utcnow().isoformat(),
-            }
-        )
-        .eq("id", prescription_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("prescriptions").update(
+        {
+            "edited_output": updates.edited_output,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    ).eq("id", prescription_id).execute()
+    result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
     return result.data
 
 
@@ -299,19 +281,13 @@ async def finalize_prescription(
     """Mark a prescription as final (locked for download/sending)."""
     _verify_prescription_ownership(prescription_id, current_user["user_id"])
 
-    result = (
-        db.table("prescriptions")
-        .update(
-            {
-                "status": "final",
-                "updated_at": datetime.utcnow().isoformat(),
-            }
-        )
-        .eq("id", prescription_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("prescriptions").update(
+        {
+            "status": "final",
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    ).eq("id", prescription_id).execute()
+    result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
     return result.data
 
 
@@ -520,17 +496,11 @@ async def chat_update_prescription(
     ).execute()
 
     # Update prescription with new output
-    result = (
-        db.table("prescriptions")
-        .update(
-            {
-                "edited_output": new_output,
-                "updated_at": datetime.utcnow().isoformat(),
-            }
-        )
-        .eq("id", prescription_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("prescriptions").update(
+        {
+            "edited_output": new_output,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    ).eq("id", prescription_id).execute()
+    result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
     return result.data
