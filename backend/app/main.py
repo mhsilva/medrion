@@ -50,7 +50,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 app.include_router(webhook_router)
-app.include_router(users_router)
+app.include_router(users_router, prefix="/users")
 app.include_router(patients_router)
 app.include_router(exams_router)
 app.include_router(prescriptions_router)
