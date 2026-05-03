@@ -162,9 +162,9 @@ export default function NewPatient() {
                 required
               >
                 <option value="">Selecione</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
-                <option value="Outro">Outro</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+                <option value="outro">Outro</option>
               </Select>
             </div>
 
