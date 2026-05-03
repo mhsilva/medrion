@@ -277,18 +277,20 @@ function Step1({ onNext }: { onNext: (data: Step1Data) => Promise<void> }) {
 function Step2({
   onNext,
   onBack,
+  step1Data,
 }: {
   onNext: (data: PrescriptionHeader) => Promise<void>
   onBack: () => void
+  step1Data: Step1Data | null
 }) {
   const { profile } = useAuth()
   const [form, setForm] = useState<PrescriptionHeader>({
-    name: profile?.name || '',
-    crm: profile?.crm || '',
-    state: profile?.crm_state || '',
-    specialty: profile?.specialty || '',
+    name: step1Data?.name || profile?.name || '',
+    crm: step1Data?.crm || profile?.crm || '',
+    state: step1Data?.crm_state || profile?.crm_state || '',
+    specialty: step1Data?.specialty || profile?.specialty || '',
     address: '',
-    phone: profile?.phone || '',
+    phone: step1Data?.phone || profile?.phone || '',
     email: profile?.email || '',
     logo_url: null,
   })
@@ -630,12 +632,14 @@ function Step4({ onBack: _onBack }: { onBack: () => void }) {
 
 export default function Onboarding() {
   const [step, setStep] = useState(1)
+  const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
   const { refreshProfile } = useAuth()
   const toast = useToast()
 
   const handleStep1 = async (data: Parameters<typeof usersApi.onboardingStep1>[0]) => {
     try {
       await usersApi.onboardingStep1(data)
+      setStep1Data(data as Step1Data)
       setStep(2)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar dados'
@@ -678,7 +682,7 @@ export default function Onboarding() {
         <StepIndicator current={step} />
 
         {step === 1 && <Step1 onNext={handleStep1} />}
-        {step === 2 && <Step2 onNext={handleStep2} onBack={() => setStep(1)} />}
+        {step === 2 && <Step2 onNext={handleStep2} onBack={() => setStep(1)} step1Data={step1Data} />}
         {step === 3 && <Step3 onNext={handleStep3} onBack={() => setStep(2)} />}
         {step === 4 && <Step4 onBack={() => setStep(3)} />}
       </div>
