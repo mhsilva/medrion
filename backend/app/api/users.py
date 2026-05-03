@@ -79,9 +79,8 @@ async def update_my_profile(
     update_data = updates.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
-    result = (
-        db.table("users").update(update_data).eq("id", user_id).select().single().execute()
-    )
+    db.table("users").update(update_data).eq("id", user_id).execute()
+    result = db.table("users").select("*").eq("id", user_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return result.data
@@ -113,9 +112,8 @@ async def onboarding_step1(
     if data.pref_injectables_detail:
         update_data["pref_injectables_detail"] = data.pref_injectables_detail
 
-    result = (
-        db.table("users").update(update_data).eq("id", user_id).select().single().execute()
-    )
+    db.table("users").update(update_data).eq("id", user_id).execute()
+    result = db.table("users").select("*").eq("id", user_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return result.data
@@ -127,14 +125,8 @@ async def onboarding_step2(
     current_user: dict = Depends(get_current_user),
 ) -> Any:
     user_id = current_user["user_id"]
-    result = (
-        db.table("users")
-        .update({"prescription_header": data.prescription_header})
-        .eq("id", user_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("users").update({"prescription_header": data.prescription_header}).eq("id", user_id).execute()
+    result = db.table("users").select("*").eq("id", user_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return result.data
@@ -144,19 +136,13 @@ async def onboarding_step2(
 async def onboarding_complete(current_user: dict = Depends(get_current_user)) -> Any:
     user_id = current_user["user_id"]
     trial_ends_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-    result = (
-        db.table("users")
-        .update({
-            "onboarding_completed": True,
-            "trial_ends_at": trial_ends_at,
-            "subscription_status": "trial",
-            "trial_prescriptions_used": 0,
-        })
-        .eq("id", user_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("users").update({
+        "onboarding_completed": True,
+        "trial_ends_at": trial_ends_at,
+        "subscription_status": "trial",
+        "trial_prescriptions_used": 0,
+    }).eq("id", user_id).execute()
+    result = db.table("users").select("*").eq("id", user_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return result.data
