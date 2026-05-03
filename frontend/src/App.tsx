@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from './components/ui/Toast'
+import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 
@@ -26,8 +27,9 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <ToastProvider>
-        <Routes>
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
@@ -94,8 +96,9 @@ export default function App() {
           {/* Redirects */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </ToastProvider>
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
