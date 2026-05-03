@@ -236,7 +236,7 @@ export const prescriptionsApi = {
   },
 
   sendChat: (id: string, message: string) =>
-    request<{ message: ChatMessage; history: ChatMessage[] }>(
+    request<{ new_text: string; history: ChatMessage[] }>(
       `/prescriptions/${id}/chat`,
       {
         method: 'POST',

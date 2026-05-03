@@ -319,11 +319,10 @@ async def submit_feedback(
 async def download_prescription(
     prescription_id: str,
     current_user: dict = Depends(get_current_user),
-) -> dict:
-    """
-    Generate a .docx file for the prescription, upload to storage, and return a signed URL.
-    Uses edited_output if available, otherwise output_text.
-    """
+):
+    """Generate and stream a .docx file for the prescription."""
+    from fastapi.responses import Response
+
     user_id = current_user["user_id"]
     prescription = _verify_prescription_ownership(prescription_id, user_id)
 
@@ -334,7 +333,6 @@ async def download_prescription(
             detail="Prescription has no content to export",
         )
 
-    # Fetch doctor header info
     user_result = (
         db.table("users")
         .select("name, crm, crm_state, specialty, prescription_header")
@@ -350,54 +348,36 @@ async def download_prescription(
         "specialty": user_data.get("specialty", ""),
     }
 
-    # Fetch patient info
     patient_id = prescription.get("patient_id")
     patient: dict = {}
     if patient_id:
         p_result = (
-            db.table("patients")
-            .select("name, birth_date")
-            .eq("id", patient_id)
-            .single()
-            .execute()
+            db.table("patients").select("name, birth_date").eq("id", patient_id).single().execute()
         )
         if p_result.data:
             patient = p_result.data
-            # Compute age
             from datetime import date
-
             birth_date = patient.get("birth_date")
             if birth_date:
                 try:
                     bd = date.fromisoformat(str(birth_date))
                     today = date.today()
-                    patient["age"] = (
-                        today.year
-                        - bd.year
-                        - ((today.month, today.day) < (bd.month, bd.day))
-                    )
+                    patient["age"] = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
                 except Exception:
                     patient["age"] = None
 
-    # Generate DOCX bytes
     docx_bytes = generate_docx(prescription_text, prescription_header, patient)
-
-    # Upload to storage
     patient_name = (patient.get("name") or "paciente").replace(" ", "_")
     filename = f"Prescricao_{patient_name}_{prescription_id[:8]}.docx"
-    storage_path = upload_docx(docx_bytes, filename, user_id)
 
-    # Update prescription with docx_url
-    db.table("prescriptions").update(
-        {"docx_url": storage_path, "updated_at": datetime.utcnow().isoformat()}
-    ).eq("id", prescription_id).execute()
-
-    # Return signed URL
-    signed_url = get_signed_url(storage_path)
-    return {"download_url": signed_url, "filename": filename}
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
-@router.post("/{prescription_id}/chat", response_model=PrescriptionResponse)
+@router.post("/{prescription_id}/chat")
 async def chat_update_prescription(
     prescription_id: str,
     message: ChatMessage,
@@ -502,5 +482,6 @@ async def chat_update_prescription(
             "updated_at": datetime.utcnow().isoformat(),
         }
     ).eq("id", prescription_id).execute()
-    result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
-    return result.data
+
+    all_conv = db.table("conversations").select("role, content").eq("prescription_id", prescription_id).order("created_at").execute()
+    return {"new_text": new_output, "history": all_conv.data or []}

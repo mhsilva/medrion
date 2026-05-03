@@ -329,11 +329,8 @@ function Step3View({ prescription, patient, onUpdate }: Step3Props) {
     try {
       const res = await prescriptionsApi.sendChat(prescription.id, msg)
       setChatHistory(res.history)
-      if (res.history.length > 0) {
-        const lastAssistant = [...res.history].reverse().find(m => m.role === 'assistant')
-        if (lastAssistant && editor) {
-          editor.commands.setContent(renderPrescriptionHtml(lastAssistant.content))
-        }
+      if (res.new_text && editor) {
+        editor.commands.setContent(renderPrescriptionHtml(res.new_text))
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro no chat'
