@@ -10,7 +10,14 @@ import type {
   ChatMessage,
 } from '../types'
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? ''
+function normalizeApiUrl(raw: string | undefined): string {
+  if (!raw) return ''
+  const url = raw.trim().replace(/\/$/, '')
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `https://${url}`
+}
+
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL as string | undefined)
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession()
