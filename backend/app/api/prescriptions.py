@@ -70,12 +70,21 @@ def _verify_prescription_ownership(prescription_id: str, user_id: str) -> dict:
 
 
 def _check_trial_limit(user_row: Optional[dict]) -> None:
-    """Raise 402 if the user has exceeded their trial prescription limit."""
     if not user_row:
         return
     subscription_status = user_row.get("subscription_status", "")
     if subscription_status not in ("trial",):
-        return  # Paid users have no limit
+        return
+
+    trial_ends_at = user_row.get("trial_ends_at")
+    if trial_ends_at:
+        from datetime import datetime, timezone
+        ends = datetime.fromisoformat(trial_ends_at.replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > ends:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Trial period expired. Please upgrade your subscription.",
+            )
 
     used = user_row.get("trial_prescriptions_used", 0) or 0
     if used >= TRIAL_PRESCRIPTION_LIMIT:
