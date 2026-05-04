@@ -394,7 +394,7 @@ async def generate_prescription(
         messages = [{"role": "user", "content": user_message_content}]
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=8000,
         system=system_blocks,
         messages=messages,
