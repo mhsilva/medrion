@@ -314,6 +314,11 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class ChatRequest(BaseModel):
+    content: str
+    current_text: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------

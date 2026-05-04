@@ -335,7 +335,8 @@ export function Step3View({ prescription, patient, onUpdate }: Step3Props) {
     setChatHistory(prev => [...prev, { role: 'user', content: msg }])
     setChatLoading(true)
     try {
-      const res = await prescriptionsApi.sendChat(prescription.id, msg)
+      const currentText = editor?.getHTML() || content
+      const res = await prescriptionsApi.sendChat(prescription.id, msg, currentText)
       setChatHistory(res.history)
       if (res.new_text && editor) {
         editor.commands.setContent(renderPrescriptionHtml(res.new_text))

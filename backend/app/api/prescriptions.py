@@ -12,6 +12,7 @@ from app.database import db
 from app.middleware.auth import get_current_user
 from app.models.schemas import (
     ChatMessage,
+    ChatRequest,
     FeedbackSubmit,
     PrescriptionCreate,
     PrescriptionResponse,
@@ -388,7 +389,7 @@ async def download_prescription(
 @router.post("/{prescription_id}/chat")
 async def chat_update_prescription(
     prescription_id: str,
-    message: ChatMessage,
+    message: ChatRequest,
     current_user: dict = Depends(get_current_user),
 ) -> Any:
     """
@@ -422,16 +423,16 @@ async def chat_update_prescription(
     conv_rows = conv_result.data or []
     conversation: list[dict] = []
 
-    # Build initial context from original prescription if no history
+    # Build initial context: prefer current_text from editor, fallback to DB
     if not conv_rows:
-        original_text = prescription.get("edited_output") or prescription.get("output_text") or ""
-        if original_text:
-            conversation.append(
-                {
-                    "role": "assistant",
-                    "content": original_text,
-                }
-            )
+        base_text = (
+            message.current_text
+            or prescription.get("edited_output")
+            or prescription.get("output_text")
+            or ""
+        )
+        if base_text:
+            conversation.append({"role": "assistant", "content": base_text})
     else:
         for row in conv_rows:
             conversation.append({"role": row["role"], "content": row["content"]})

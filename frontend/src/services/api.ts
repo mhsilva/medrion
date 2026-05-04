@@ -235,12 +235,12 @@ export const prescriptionsApi = {
     return res.blob()
   },
 
-  sendChat: (id: string, message: string) =>
+  sendChat: (id: string, message: string, currentText?: string) =>
     request<{ new_text: string; history: ChatMessage[] }>(
       `/prescriptions/${id}/chat`,
       {
         method: 'POST',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ content: message, current_text: currentText }),
       }
     ),
 
