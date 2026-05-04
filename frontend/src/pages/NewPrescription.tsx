@@ -337,9 +337,9 @@ export function Step3View({ prescription, patient, onUpdate }: Step3Props) {
     try {
       const currentText = editor?.getHTML() || content
       const res = await prescriptionsApi.sendChat(prescription.id, msg, currentText)
-      setChatHistory(res.history)
       if (res.new_text && editor) {
         editor.commands.setContent(renderPrescriptionHtml(res.new_text))
+        setChatHistory(prev => [...prev, { role: 'assistant', content: 'Prescricao atualizada!' }])
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro no chat'
@@ -371,8 +371,17 @@ export function Step3View({ prescription, patient, onUpdate }: Step3Props) {
               <h2 className="text-sm font-semibold text-gray-800">Prescricao</h2>
               {isFinalized && <Badge variant="success">Finalizada</Badge>}
             </div>
-            <div className="overflow-auto max-h-[60vh]">
+            <div className="relative overflow-auto max-h-[60vh]">
               <EditorContent editor={editor} />
+              {chatLoading && (
+                <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex flex-col items-center justify-center gap-3 rounded-b-lg">
+                  <svg className="animate-spin w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  <p className="text-sm font-medium text-primary">Atualizando prescricao...</p>
+                </div>
+              )}
             </div>
             {!isFinalized && (
               <div className="flex gap-2 px-4 py-3 border-t border-gray-100">
