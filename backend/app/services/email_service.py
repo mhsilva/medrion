@@ -78,6 +78,50 @@ def send_otp_email(to: str, otp: str) -> None:
         logger.error("Failed to send OTP email to %s: %s", to, exc)
 
 
+def send_pharmacy_invite_email(to: str, pharmacy_name: str, token: str) -> None:
+    """Send a pharmacy invite email to a doctor."""
+    if not _resend_available():
+        logger.debug("RESEND_API_KEY not configured — skipping invite email to %s", to)
+        return
+
+    try:
+        import resend
+
+        resend.api_key = settings.RESEND_API_KEY
+        app_url = getattr(settings, "FRONTEND_URL", "https://medrion.com.br")
+        invite_url = f"{app_url}/cadastro?token={token}"
+
+        resend.Emails.send(
+            {
+                "from": "Medrion <noreply@medrion.com.br>",
+                "to": [to],
+                "subject": f"Convite para usar o Medrion — {pharmacy_name}",
+                "html": f"""
+                <h2>Você foi convidado para o Medrion</h2>
+                <p>A farmácia <strong>{pharmacy_name}</strong> convidou você para usar a plataforma Medrion.</p>
+                <p>Clique no botão abaixo para criar sua conta:</p>
+                <a href="{invite_url}" style="
+                    display: inline-block;
+                    background: #0F3D5C;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    font-weight: bold;
+                    margin: 16px 0;
+                ">Criar minha conta</a>
+                <p style="color: #888; font-size: 12px;">
+                    Este convite expira em 7 dias.<br>
+                    Se você não reconhece esta solicitação, ignore este e-mail.
+                </p>
+                """,
+            }
+        )
+        logger.info("Invite email sent to %s for pharmacy %s", to, pharmacy_name)
+    except Exception as exc:
+        logger.error("Failed to send invite email to %s: %s", to, exc)
+
+
 def send_prescription_to_pharmacy(
     to: str, docx_bytes: bytes, patient_name: str
 ) -> None:

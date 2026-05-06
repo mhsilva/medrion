@@ -355,3 +355,56 @@ class UrgentAlertCreate(BaseModel):
     severity: Optional[str] = None
     show_on_login: bool = False
     active_id: Optional[UUID] = None
+
+
+# ---------------------------------------------------------------------------
+# Pharmacy
+# ---------------------------------------------------------------------------
+
+
+class PharmacyOnboardingStep1(BaseModel):
+    name: str
+    cnpj: str
+    responsible_name: str
+    responsible_email: str
+    phone: str
+
+
+class PharmacyOnboardingStep2(BaseModel):
+    document_types: List[str]
+
+
+class PharmacyResponse(BaseModel):
+    id: UUID
+    name: str
+    cnpj: str
+    responsible_name: Optional[str] = None
+    responsible_email: Optional[str] = None
+    phone: Optional[str] = None
+    plan_seats: Optional[int] = None
+    subscription_status: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class PharmacyInviteCreate(BaseModel):
+    email: str
+
+
+class PharmacyBulkInviteCreate(BaseModel):
+    emails: List[str]
+
+
+class PharmacyDoctorResponse(BaseModel):
+    id: UUID
+    name: Optional[str] = None
+    email: str
+    subscription_status: Optional[str] = None
+    last_login_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class InviteValidateResponse(BaseModel):
+    email: str
+    pharmacy_name: str
+    pharmacy_id: UUID
+    token: str

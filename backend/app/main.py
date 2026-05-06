@@ -10,6 +10,8 @@ from app.api.admin import router as admin_router
 from app.api.exams import router as exams_router
 from app.api.notifications import router as notifications_router
 from app.api.patients import router as patients_router
+from app.api.pharmacies import router as pharmacies_router
+from app.api.pharmacies import invites_router
 from app.api.prescriptions import router as prescriptions_router
 from app.api.users import router as users_router
 from app.api.users import webhook_router
@@ -56,6 +58,8 @@ app.include_router(notifications_router)
 app.include_router(patients_router)
 app.include_router(exams_router)
 app.include_router(prescriptions_router)
+app.include_router(pharmacies_router)
+app.include_router(invites_router)
 app.include_router(admin_router)
 
 # ---------------------------------------------------------------------------

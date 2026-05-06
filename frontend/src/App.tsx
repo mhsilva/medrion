@@ -8,6 +8,8 @@ import { Layout } from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
+import PharmacyOnboarding from './pages/PharmacyOnboarding'
+import PharmacyDashboard from './pages/PharmacyDashboard'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import NewPatient from './pages/NewPatient'
@@ -19,7 +21,7 @@ import Profile from './pages/Profile'
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={['doctor', 'admin']}>
       <Layout>{children}</Layout>
     </ProtectedRoute>
   )
@@ -35,6 +37,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/onboarding/farmacia" element={<PharmacyOnboarding />} />
 
           {/* Protected routes */}
           <Route
@@ -99,6 +102,16 @@ export default function App() {
               <ProtectedLayout>
                 <Profile />
               </ProtectedLayout>
+            }
+          />
+
+          {/* Pharmacy protected route */}
+          <Route
+            path="/farmacia/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['pharmacy_admin', 'admin']}>
+                <PharmacyDashboard />
+              </ProtectedRoute>
             }
           />
 

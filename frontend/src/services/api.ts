@@ -8,6 +8,10 @@ import type {
   OnboardingStep1Data,
   OnboardingStep2Data,
   ChatMessage,
+  Pharmacy,
+  PharmacyDoctor,
+  PharmacyPrescription,
+  InviteValidateResponse,
 } from '../types'
 
 function normalizeApiUrl(raw: string | undefined): string {
@@ -258,6 +262,64 @@ export const notificationsApi = {
 
   markAllAsRead: () =>
     request<{ ok: boolean }>('/notifications/read-all', { method: 'POST' }),
+}
+
+// ─── Pharmacy ─────────────────────────────────────────────────────────────────
+
+export const pharmacyApi = {
+  onboardingStep1: (data: {
+    name: string
+    cnpj: string
+    responsible_name: string
+    responsible_email: string
+    phone: string
+  }) =>
+    request<Pharmacy>('/pharmacies/onboarding/step1', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  onboardingStep2: (document_types: string[]) =>
+    request<{ accepted_at: string }>('/pharmacies/onboarding/step2', {
+      method: 'POST',
+      body: JSON.stringify({ document_types }),
+    }),
+
+  getMyPharmacy: () => request<Pharmacy>('/pharmacies/me'),
+
+  updateMyPharmacy: (data: Partial<Pharmacy>) =>
+    request<Pharmacy>('/pharmacies/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getDoctors: () => request<PharmacyDoctor[]>('/pharmacies/me/doctors'),
+
+  removeDoctor: (userId: string) =>
+    request<void>(`/pharmacies/me/doctors/${userId}`, { method: 'DELETE' }),
+
+  inviteDoctor: (email: string) =>
+    request<{ email: string; status: string }>('/pharmacies/me/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  inviteBulk: (emails: string[]) =>
+    request<{ results: { email: string; status: string }[]; total: number }>(
+      '/pharmacies/me/invite/bulk',
+      { method: 'POST', body: JSON.stringify({ emails }) }
+    ),
+
+  getPrescriptions: () =>
+    request<PharmacyPrescription[]>('/pharmacies/me/prescriptions'),
+
+  validateInvite: (token: string) =>
+    request<InviteValidateResponse>(`/invites/validate/${token}`),
+
+  acceptInvite: (token: string) =>
+    request<{ status: string; pharmacy_id: string }>(`/invites/accept/${token}`, {
+      method: 'POST',
+    }),
 }
 
 // ─── Prescription Header logo upload ─────────────────────────────────────────

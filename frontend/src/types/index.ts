@@ -2,12 +2,13 @@ export interface User {
   id: string
   email: string
   name: string
-  role: 'doctor' | 'admin'
+  role: 'doctor' | 'admin' | 'pharmacy_admin'
   crm: string
   crm_state: string
   specialty: string
   phone: string
-  subscription_status: 'trial' | 'active' | 'suspended' | 'cancelled'
+  pharmacy_id?: string | null
+  subscription_status: 'trial' | 'active' | 'suspended' | 'cancelled' | 'pending'
   trial_ends_at: string | null
   trial_prescriptions_used: number
   pref_injectables: boolean
@@ -18,6 +19,52 @@ export interface User {
   onboarding_completed: boolean
   legal_accepted_at?: string | null
   created_at?: string
+}
+
+export interface Pharmacy {
+  id: string
+  name: string
+  cnpj: string
+  responsible_name: string | null
+  responsible_email: string | null
+  phone: string | null
+  plan_seats: number | null
+  subscription_status: string | null
+  created_at: string
+}
+
+export interface PharmacyDoctor {
+  id: string
+  name: string | null
+  email: string
+  subscription_status: string | null
+  last_login_at: string | null
+  created_at: string
+}
+
+export interface PharmacyPrescription {
+  id: string
+  patient_id: string
+  user_id: string
+  status: string
+  created_at: string
+  docx_url: string | null
+  patients: { name: string } | null
+}
+
+export interface PharmacyInvite {
+  id: string
+  email: string
+  status: string
+  expires_at: string
+  created_at: string
+}
+
+export interface InviteValidateResponse {
+  email: string
+  pharmacy_name: string
+  pharmacy_id: string
+  token: string
 }
 
 export interface Patient {
