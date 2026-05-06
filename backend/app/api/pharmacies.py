@@ -3,6 +3,7 @@ Pharmacy routes for Medrion.
 Routes for pharmacy_admin users and public invite validation.
 """
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 import secrets
@@ -249,6 +250,18 @@ def _create_invite(pharmacy_id: str, pharmacy_name: str, email: str) -> dict:
         send_pharmacy_invite_email(email, pharmacy_name, token)
     except Exception:
         pass
+
+    existing_user = db.table("users").select("id").eq("email", email).execute()
+    if existing_user.data:
+        db.table("notifications").insert({
+            "user_id": existing_user.data[0]["id"],
+            "type": "invite",
+            "message": json.dumps({
+                "text": f"A farmácia {pharmacy_name} te convidou para colaborar na plataforma.",
+                "token": token,
+            }),
+            "read": False,
+        }).execute()
 
     return {"email": email, "status": "invited", "token": token}
 

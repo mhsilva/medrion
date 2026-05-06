@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Sidebar, MobileMenuButton } from './Sidebar'
 import { useAuth } from '../hooks/useAuth'
-import { notificationsApi } from '../services/api'
+import { notificationsApi, pharmacyApi } from '../services/api'
 import type { Notification } from '../types'
 import { differenceInDays, formatDate } from '../utils/format'
+import { useToast } from './ui/Toast'
 
 function BellIcon() {
   return (
@@ -23,15 +24,27 @@ function InfoIcon() {
   )
 }
 
+function parseInviteMessage(raw: string): { text: string; token: string } | null {
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed.text && parsed.token) return parsed as { text: string; token: string }
+  } catch {}
+  return null
+}
+
 function NotificationsPanel({
   notifications,
   onMarkRead,
+  onAcceptInvite,
   onClose,
 }: {
   notifications: Notification[]
   onMarkRead: (id: string) => void
+  onAcceptInvite: (token: string, notifId: string) => Promise<void>
   onClose: () => void
 }) {
+  const [accepting, setAccepting] = useState<string | null>(null)
+
   return (
     <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-card-hover border border-gray-100 z-50 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -42,25 +55,43 @@ function NotificationsPanel({
         {notifications.length === 0 ? (
           <p className="text-sm text-gray-500 text-center py-6">Nenhuma notificação</p>
         ) : (
-          notifications.map(n => (
-            <div
-              key={n.id}
-              className={['px-4 py-3 border-b border-gray-50 flex gap-3', !n.read ? 'bg-blue-50/30' : ''].join(' ')}
-            >
-              <div className="flex-1">
-                <p className="text-sm text-gray-700">{n.message}</p>
+          notifications.map(n => {
+            const invite = n.type === 'invite' ? parseInviteMessage(n.message) : null
+            const displayText = invite ? invite.text : n.message
+
+            return (
+              <div
+                key={n.id}
+                className={['px-4 py-3 border-b border-gray-50', !n.read ? 'bg-blue-50/30' : ''].join(' ')}
+              >
+                <p className="text-sm text-gray-700">{displayText}</p>
                 <p className="text-xs text-gray-400 mt-1">{formatDate(n.created_at)}</p>
+                {!n.read && (
+                  <div className="flex gap-2 mt-2">
+                    {invite && (
+                      <button
+                        onClick={async () => {
+                          setAccepting(n.id)
+                          await onAcceptInvite(invite.token, n.id)
+                          setAccepting(null)
+                        }}
+                        disabled={accepting === n.id}
+                        className="text-xs bg-primary text-white px-3 py-1 rounded hover:bg-primary/90 disabled:opacity-60"
+                      >
+                        {accepting === n.id ? 'Aceitando...' : 'Aceitar convite'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onMarkRead(n.id)}
+                      className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+                    >
+                      Dispensar
+                    </button>
+                  </div>
+                )}
               </div>
-              {!n.read && (
-                <button
-                  onClick={() => onMarkRead(n.id)}
-                  className="text-xs text-primary hover:underline whitespace-nowrap"
-                >
-                  Marcar lida
-                </button>
-              )}
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
@@ -100,7 +131,8 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
+  const toast = useToast()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
@@ -130,6 +162,19 @@ export function Layout({ children }: LayoutProps) {
       await notificationsApi.markAsRead(id)
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
     } catch {}
+  }
+
+  const handleAcceptInvite = async (token: string, notifId: string) => {
+    try {
+      await pharmacyApi.acceptInvite(token)
+      await notificationsApi.markAsRead(notifId)
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n))
+      await refreshProfile()
+      toast.success('Convite aceito! Bem-vindo à farmácia.')
+      setShowNotifications(false)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao aceitar convite')
+    }
   }
 
   return (
@@ -163,6 +208,7 @@ export function Layout({ children }: LayoutProps) {
               <NotificationsPanel
                 notifications={notifications}
                 onMarkRead={handleMarkRead}
+                onAcceptInvite={handleAcceptInvite}
                 onClose={() => setShowNotifications(false)}
               />
             )}

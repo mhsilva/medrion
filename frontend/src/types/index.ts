@@ -117,7 +117,7 @@ export interface Prescription {
 export interface Notification {
   id: string
   user_id: string
-  type: 'info' | 'warning' | 'success' | 'error'
+  type: 'info' | 'warning' | 'success' | 'error' | 'invite'
   message: string
   read: boolean
   created_at: string
