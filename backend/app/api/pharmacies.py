@@ -415,8 +415,6 @@ async def accept_invite(
         }
     ).eq("id", user_id).execute()
 
-    db.table("pharmacy_invites").update(
-        {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat()}
-    ).eq("token", token).execute()
+    db.table("pharmacy_invites").update({"status": "accepted"}).eq("token", token).execute()
 
     return {"status": "accepted", "pharmacy_id": invite["pharmacy_id"]}
