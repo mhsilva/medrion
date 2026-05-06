@@ -326,6 +326,21 @@ export const pharmacyApi = {
     request<{ status: string; pharmacy_id: string }>(`/invites/accept/${token}`, {
       method: 'POST',
     }),
+
+  downloadPrescription: async (prescriptionId: string): Promise<Blob> => {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    const res = await fetch(`${API_URL}/pharmacies/me/prescriptions/${prescriptionId}/download`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+    if (!res.ok) throw new Error(`Erro ao baixar: ${res.status}`)
+    return res.blob()
+  },
+
+  sendPrescriptionEmail: (prescriptionId: string) =>
+    request<{ status: string; to: string }>(`/pharmacies/me/prescriptions/${prescriptionId}/send-email`, {
+      method: 'POST',
+    }),
 }
 
 // ─── Prescription Header logo upload ─────────────────────────────────────────

@@ -9,9 +9,12 @@ from typing import Any
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 
 from app.database import db
 from app.middleware.auth import get_current_user
+from app.services.docx_service import generate_docx
+from app.services.email_service import send_prescription_to_pharmacy
 from app.models.schemas import (
     PharmacyOnboardingStep1,
     PharmacyOnboardingStep2,
@@ -324,11 +327,140 @@ async def list_pharmacy_prescriptions(
         db.table("prescriptions")
         .select("id, patient_id, user_id, status, created_at, docx_url, patients(name)")
         .in_("user_id", doctor_ids)
+        .eq("status", "final")
         .order("created_at", desc=True)
-        .limit(200)
+        .limit(500)
         .execute()
     )
     return result.data or []
+
+
+@router.get("/me/prescriptions/{prescription_id}/download")
+async def download_pharmacy_prescription(
+    prescription_id: str,
+    current_user: dict = Depends(_require_pharmacy_admin),
+) -> Any:
+    user_id = current_user["user_id"]
+    pharmacy_id = _get_pharmacy_id(user_id)
+
+    prescription_result = (
+        db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
+    )
+    if not prescription_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescrição não encontrada")
+    prescription = prescription_result.data
+
+    # Verify the doctor belongs to this pharmacy
+    doctor_result = (
+        db.table("users")
+        .select("name, crm, crm_state, specialty, prescription_header, pharmacy_id")
+        .eq("id", prescription["user_id"])
+        .single()
+        .execute()
+    )
+    if not doctor_result.data or doctor_result.data.get("pharmacy_id") != pharmacy_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+
+    prescription_text = prescription.get("edited_output") or prescription.get("output_text") or ""
+    if not prescription_text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Prescrição sem conteúdo")
+
+    doctor_data = doctor_result.data
+    prescription_header = doctor_data.get("prescription_header") or {
+        "name": doctor_data.get("name", ""),
+        "crm": doctor_data.get("crm", ""),
+        "state": doctor_data.get("crm_state", ""),
+        "specialty": doctor_data.get("specialty", ""),
+    }
+
+    patient: dict = {}
+    if prescription.get("patient_id"):
+        p_result = db.table("patients").select("name, birth_date").eq("id", prescription["patient_id"]).single().execute()
+        if p_result.data:
+            patient = p_result.data
+            from datetime import date
+            birth_date = patient.get("birth_date")
+            if birth_date:
+                try:
+                    bd = date.fromisoformat(str(birth_date))
+                    today = date.today()
+                    patient["age"] = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+                except Exception:
+                    patient["age"] = None
+
+    docx_bytes = generate_docx(prescription_text, prescription_header, patient)
+    patient_name = (patient.get("name") or "paciente").replace(" ", "_")
+    filename = f"Prescricao_{patient_name}_{prescription_id[:8]}.docx"
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/me/prescriptions/{prescription_id}/send-email")
+async def send_prescription_email(
+    prescription_id: str,
+    current_user: dict = Depends(_require_pharmacy_admin),
+) -> Any:
+    user_id = current_user["user_id"]
+    pharmacy_id = _get_pharmacy_id(user_id)
+
+    pharmacy_result = db.table("pharmacies").select("*").eq("id", pharmacy_id).single().execute()
+    if not pharmacy_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Farmácia não encontrada")
+    pharmacy = pharmacy_result.data
+
+    prescription_result = (
+        db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
+    )
+    if not prescription_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescrição não encontrada")
+    prescription = prescription_result.data
+
+    doctor_result = (
+        db.table("users")
+        .select("name, crm, crm_state, specialty, prescription_header, pharmacy_id")
+        .eq("id", prescription["user_id"])
+        .single()
+        .execute()
+    )
+    if not doctor_result.data or doctor_result.data.get("pharmacy_id") != pharmacy_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+
+    prescription_text = prescription.get("edited_output") or prescription.get("output_text") or ""
+    if not prescription_text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Prescrição sem conteúdo")
+
+    doctor_data = doctor_result.data
+    prescription_header = doctor_data.get("prescription_header") or {
+        "name": doctor_data.get("name", ""),
+        "crm": doctor_data.get("crm", ""),
+        "state": doctor_data.get("crm_state", ""),
+        "specialty": doctor_data.get("specialty", ""),
+    }
+
+    patient: dict = {}
+    if prescription.get("patient_id"):
+        p_result = db.table("patients").select("name, birth_date").eq("id", prescription["patient_id"]).single().execute()
+        if p_result.data:
+            patient = p_result.data
+
+    docx_bytes = generate_docx(prescription_text, prescription_header, patient)
+    patient_name = patient.get("name") or "Paciente"
+    to_email = pharmacy.get("responsible_email") or ""
+
+    if not to_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Farmácia sem e-mail cadastrado")
+
+    send_prescription_to_pharmacy(to_email, docx_bytes, patient_name)
+
+    db.table("prescriptions").update(
+        {"pharmacy_notified_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", prescription_id).execute()
+
+    return {"status": "sent", "to": to_email}
 
 
 # ---------------------------------------------------------------------------
