@@ -29,7 +29,7 @@ export interface Pharmacy {
   responsible_email: string | null
   phone: string | null
   plan_seats: number | null
-  subscription_status: string | null
+  subscription_status: 'active' | 'suspended' | 'cancelled' | null
   created_at: string
 }
 

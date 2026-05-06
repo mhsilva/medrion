@@ -66,7 +66,7 @@ async def pharmacy_onboarding_step1(
             "responsible_name": data.responsible_name,
             "responsible_email": data.responsible_email,
             "phone": data.phone,
-            "subscription_status": "trial",
+            "subscription_status": "active",
             "plan_seats": 10,
         }
     ).execute()
