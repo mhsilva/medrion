@@ -30,7 +30,7 @@ def send_welcome_email(to: str, name: str) -> None:
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send(
             {
-                "from": "Medrion <noreply@medrion.com.br>",
+                "from": settings.EMAIL_FROM,
                 "to": [to],
                 "subject": "Bem-vindo ao Medrion!",
                 "html": f"""
@@ -61,7 +61,7 @@ def send_otp_email(to: str, otp: str) -> None:
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send(
             {
-                "from": "Medrion <noreply@medrion.com.br>",
+                "from": settings.EMAIL_FROM,
                 "to": [to],
                 "subject": "Seu código de verificação — Medrion",
                 "html": f"""
@@ -93,7 +93,7 @@ def send_pharmacy_invite_email(to: str, pharmacy_name: str, token: str) -> None:
 
         resend.Emails.send(
             {
-                "from": "Medrion <noreply@medrion.com.br>",
+                "from": settings.EMAIL_FROM,
                 "to": [to],
                 "subject": f"Convite para usar o Medrion — {pharmacy_name}",
                 "html": f"""
@@ -131,7 +131,7 @@ def _send(to: str, subject: str, html: str) -> None:
 
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send({
-            "from": "Medrion <noreply@medrion.com.br>",
+            "from": settings.EMAIL_FROM,
             "to": [to],
             "subject": subject,
             "html": html,
@@ -218,7 +218,7 @@ def send_prescription_to_pharmacy(
 
         resend.Emails.send(
             {
-                "from": "Medrion <prescricoes@medrion.com.br>",
+                "from": (settings.EMAIL_FROM_PRESCRIPTION or settings.EMAIL_FROM),
                 "to": [to],
                 "subject": f"Prescrição Médica — {patient_name}",
                 "html": f"""

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     STRIPE_PRICE_PHARMACY_20: str = ""
     STRIPE_PRICE_PHARMACY_30: str = ""
     CRON_SECRET: str = ""
+    EMAIL_FROM: str = "Medrion <onboarding@resend.dev>"
+    EMAIL_FROM_PRESCRIPTION: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
