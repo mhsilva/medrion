@@ -175,11 +175,14 @@ async def list_pharmacy_doctors(
     if not pharmacy_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Farmácia não encontrada")
 
+    links = db.table("pharmacy_doctors").select("doctor_id").eq("pharmacy_id", pharmacy_id).eq("status", "active").execute()
+    doctor_ids = [r["doctor_id"] for r in (links.data or [])]
+    if not doctor_ids:
+        return []
     result = (
         db.table("users")
         .select("id, name, email, subscription_status, last_login_at, created_at")
-        .eq("pharmacy_id", pharmacy_id)
-        .eq("role", "doctor")
+        .in_("id", doctor_ids)
         .order("name")
         .execute()
     )
@@ -197,18 +200,11 @@ async def remove_pharmacy_doctor(
     if not pharmacy_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Farmácia não encontrada")
 
-    doctor = (
-        db.table("users")
-        .select("id, pharmacy_id")
-        .eq("id", doctor_user_id)
-        .eq("pharmacy_id", pharmacy_id)
-        .single()
-        .execute()
-    )
-    if not doctor.data:
+    link = db.table("pharmacy_doctors").select("id").eq("pharmacy_id", pharmacy_id).eq("doctor_id", doctor_user_id).eq("status", "active").execute()
+    if not link.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Médico não encontrado nesta farmácia")
 
-    db.table("users").update({"pharmacy_id": None}).eq("id", doctor_user_id).execute()
+    db.table("pharmacy_doctors").update({"status": "removed"}).eq("pharmacy_id", pharmacy_id).eq("doctor_id", doctor_user_id).execute()
 
 
 # ---------------------------------------------------------------------------
@@ -312,14 +308,8 @@ async def list_pharmacy_prescriptions(
     user_id = current_user["user_id"]
     pharmacy_id = _get_pharmacy_id(user_id)
 
-    doctors = (
-        db.table("users")
-        .select("id")
-        .eq("pharmacy_id", pharmacy_id)
-        .eq("role", "doctor")
-        .execute()
-    )
-    doctor_ids = [d["id"] for d in (doctors.data or [])]
+    links = db.table("pharmacy_doctors").select("doctor_id").eq("pharmacy_id", pharmacy_id).eq("status", "active").execute()
+    doctor_ids = [r["doctor_id"] for r in (links.data or [])]
     if not doctor_ids:
         return []
 
@@ -350,16 +340,19 @@ async def download_pharmacy_prescription(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescrição não encontrada")
     prescription = prescription_result.data
 
-    # Verify the doctor belongs to this pharmacy
+    link = db.table("pharmacy_doctors").select("id").eq("pharmacy_id", pharmacy_id).eq("doctor_id", prescription["user_id"]).execute()
+    if not link.data:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+
     doctor_result = (
         db.table("users")
-        .select("name, crm, crm_state, specialty, prescription_header, pharmacy_id")
+        .select("name, crm, crm_state, specialty, prescription_header")
         .eq("id", prescription["user_id"])
         .single()
         .execute()
     )
-    if not doctor_result.data or doctor_result.data.get("pharmacy_id") != pharmacy_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+    if not doctor_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Médico não encontrado")
 
     prescription_text = prescription.get("edited_output") or prescription.get("output_text") or ""
     if not prescription_text:
@@ -419,15 +412,19 @@ async def send_prescription_email(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prescrição não encontrada")
     prescription = prescription_result.data
 
+    link = db.table("pharmacy_doctors").select("id").eq("pharmacy_id", pharmacy_id).eq("doctor_id", prescription["user_id"]).execute()
+    if not link.data:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+
     doctor_result = (
         db.table("users")
-        .select("name, crm, crm_state, specialty, prescription_header, pharmacy_id")
+        .select("name, crm, crm_state, specialty, prescription_header")
         .eq("id", prescription["user_id"])
         .single()
         .execute()
     )
-    if not doctor_result.data or doctor_result.data.get("pharmacy_id") != pharmacy_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+    if not doctor_result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Médico não encontrado")
 
     prescription_text = prescription.get("edited_output") or prescription.get("output_text") or ""
     if not prescription_text:
@@ -540,12 +537,12 @@ async def accept_invite(
             detail="Este convite pertence a outro e-mail",
         )
 
-    db.table("users").update(
-        {
-            "pharmacy_id": invite["pharmacy_id"],
-            "subscription_status": "active",
-        }
-    ).eq("id", user_id).execute()
+    db.table("pharmacy_doctors").upsert(
+        {"pharmacy_id": invite["pharmacy_id"], "doctor_id": user_id, "status": "active"},
+        on_conflict="pharmacy_id,doctor_id",
+    ).execute()
+
+    db.table("users").update({"subscription_status": "active"}).eq("id", user_id).execute()
 
     db.table("pharmacy_invites").update({"status": "accepted"}).eq("token", token).execute()
 
