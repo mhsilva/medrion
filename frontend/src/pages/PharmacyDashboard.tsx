@@ -1,10 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { pharmacyApi, notificationsApi } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import type { Pharmacy, PharmacyDoctor, PharmacyPrescription, Notification } from '../types'
+
+function playBeep() {
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 830
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.6)
+  } catch {}
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -300,22 +315,81 @@ function DoctorsPanel({
 
 // ─── Prescriptions panel ──────────────────────────────────────────────────────
 
+function SendEmailModal({
+  prescription,
+  defaultEmail,
+  onClose,
+}: {
+  prescription: PharmacyPrescription
+  defaultEmail: string
+  onClose: () => void
+}) {
+  const [email, setEmail] = useState(defaultEmail)
+  const [loading, setLoading] = useState(false)
+  const toast = useToast()
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email.trim() || !email.includes('@')) { toast.error('E-mail inválido'); return }
+    setLoading(true)
+    try {
+      await pharmacyApi.sendPrescriptionEmail(prescription.id, email.trim())
+      toast.success(`Prescrição enviada para ${email.trim()}`)
+      onClose()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+    } finally {
+      setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Enviar prescrição por e-mail</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{prescription.patients?.name || '—'}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <form onSubmit={handleSend} className="p-4 space-y-4">
+          <Input
+            label="Enviar para"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="email@destino.com.br"
+            required
+          />
+          <p className="text-xs text-gray-400">O arquivo .docx da prescrição será enviado como anexo.</p>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" fullWidth onClick={onClose}>Cancelar</Button>
+            <Button type="submit" fullWidth loading={loading}>Enviar</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function PrescriptionsPanel({
   prescriptions,
   doctors,
   loading,
   selectedDoctor,
   pharmacyEmail,
+  onRefresh,
 }: {
   prescriptions: PharmacyPrescription[]
   doctors: PharmacyDoctor[]
   loading: boolean
   selectedDoctor: PharmacyDoctor | null
   pharmacyEmail: string | null
+  onRefresh: () => void
 }) {
   const toast = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
-  const [sending, setSending] = useState<string | null>(null)
+  const [emailModal, setEmailModal] = useState<PharmacyPrescription | null>(null)
 
   const doctorMap = new Map(doctors.map(d => [d.id, d.name || d.email]))
 
@@ -340,74 +414,78 @@ function PrescriptionsPanel({
     }
   }
 
-  const handleSendEmail = async (p: PharmacyPrescription) => {
-    setSending(p.id)
-    try {
-      const res = await pharmacyApi.sendPrescriptionEmail(p.id)
-      toast.success(`Enviado para ${res.to}`)
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar e-mail')
-    } finally {
-      setSending(null)
-    }
-  }
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <div>
-          <h2 className="font-semibold text-gray-900 text-sm">{title}</h2>
-          {pharmacyEmail && (
-            <p className="text-xs text-gray-400 mt-0.5">E-mail destino: <span className="text-gray-600">{pharmacyEmail}</span></p>
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 flex flex-col h-full">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="font-semibold text-gray-900 text-sm">{title}
+            <span className="ml-2 text-xs font-normal text-gray-400">{filtered.length} prescrição(ões)</span>
+          </h2>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="text-xs text-gray-400 hover:text-primary transition-colors flex items-center gap-1 disabled:opacity-50"
+            title="Atualizar"
+          >
+            <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Atualizar
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1" style={{ maxHeight: 480 }}>
+          {loading ? (
+            <p className="text-center text-gray-400 text-sm py-8">Carregando...</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-8">
+              {selectedDoctor ? 'Nenhuma prescrição finalizada' : 'Nenhuma prescrição finalizada hoje'}
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {filtered.map(p => (
+                <li key={p.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">{p.patients?.name || '—'}</p>
+                      {!selectedDoctor && (
+                        <p className="text-xs text-gray-500">{doctorMap.get(p.user_id) || '—'}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {selectedDoctor ? formatDateTime(p.created_at) : formatTime(p.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleDownload(p)}
+                        disabled={downloading === p.id}
+                        className="text-xs text-primary hover:underline disabled:opacity-50 font-medium"
+                      >
+                        {downloading === p.id ? '...' : 'Baixar'}
+                      </button>
+                      <button
+                        onClick={() => setEmailModal(p)}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors"
+                      >
+                        📧 E-mail
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
-        <span className="text-xs text-gray-400">{filtered.length} prescrição(ões)</span>
       </div>
 
-      <div className="overflow-y-auto flex-1" style={{ maxHeight: 480 }}>
-        {loading ? (
-          <p className="text-center text-gray-400 text-sm py-8">Carregando...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-8">
-            {selectedDoctor ? 'Nenhuma prescrição finalizada' : 'Nenhuma prescrição finalizada hoje'}
-          </p>
-        ) : (
-          <ul className="divide-y divide-gray-50">
-            {filtered.map(p => (
-              <li key={p.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">{p.patients?.name || '—'}</p>
-                    {!selectedDoctor && (
-                      <p className="text-xs text-gray-500">{doctorMap.get(p.user_id) || '—'}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {selectedDoctor ? formatDateTime(p.created_at) : formatTime(p.created_at)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleDownload(p)}
-                      disabled={downloading === p.id}
-                      className="text-xs text-primary hover:underline disabled:opacity-50 font-medium"
-                    >
-                      {downloading === p.id ? '...' : 'Baixar'}
-                    </button>
-                    <button
-                      onClick={() => handleSendEmail(p)}
-                      disabled={sending === p.id}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors disabled:opacity-50"
-                    >
-                      {sending === p.id ? '...' : '📧 E-mail'}
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+      {emailModal && (
+        <SendEmailModal
+          prescription={emailModal}
+          defaultEmail={pharmacyEmail || ''}
+          onClose={() => setEmailModal(null)}
+        />
+      )}
+    </>
   )
 }
 
@@ -425,6 +503,33 @@ export default function PharmacyDashboard() {
   const [loadingDoctors, setLoadingDoctors] = useState(true)
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(true)
 
+  const seenIdsRef = useRef<Set<string>>(new Set())
+  const isFirstFetchRef = useRef(true)
+
+  const fetchPrescriptions = useCallback(async (silent = false) => {
+    if (!silent) setLoadingPrescriptions(true)
+    try {
+      const data = await pharmacyApi.getPrescriptions()
+      setPrescriptions(data)
+
+      if (isFirstFetchRef.current) {
+        data.forEach(p => seenIdsRef.current.add(p.id))
+        isFirstFetchRef.current = false
+      } else {
+        const newOnes = data.filter(p => !seenIdsRef.current.has(p.id))
+        if (newOnes.length > 0) {
+          newOnes.forEach(p => seenIdsRef.current.add(p.id))
+          playBeep()
+          toast.success(`${newOnes.length} nova(s) prescrição(ões) recebida(s)`)
+        }
+      }
+    } catch {
+      if (!silent) toast.error('Erro ao carregar prescrições')
+    } finally {
+      if (!silent) setLoadingPrescriptions(false)
+    }
+  }, [toast])
+
   useEffect(() => {
     pharmacyApi.getMyPharmacy()
       .then(setPharmacy)
@@ -432,12 +537,13 @@ export default function PharmacyDashboard() {
       .finally(() => setLoadingPharmacy(false))
 
     fetchDoctors()
-
-    pharmacyApi.getPrescriptions()
-      .then(setPrescriptions)
-      .catch(() => toast.error('Erro ao carregar prescrições'))
-      .finally(() => setLoadingPrescriptions(false))
+    fetchPrescriptions()
   }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => fetchPrescriptions(true), 60_000)
+    return () => clearInterval(interval)
+  }, [fetchPrescriptions])
 
   const fetchDoctors = () => {
     setLoadingDoctors(true)
@@ -509,6 +615,7 @@ export default function PharmacyDashboard() {
               loading={loadingPrescriptions}
               selectedDoctor={selectedDoctor}
               pharmacyEmail={pharmacy?.responsible_email ?? null}
+              onRefresh={() => fetchPrescriptions()}
             />
           </div>
         </div>

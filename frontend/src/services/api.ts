@@ -337,9 +337,10 @@ export const pharmacyApi = {
     return res.blob()
   },
 
-  sendPrescriptionEmail: (prescriptionId: string) =>
+  sendPrescriptionEmail: (prescriptionId: string, toEmail: string) =>
     request<{ status: string; to: string }>(`/pharmacies/me/prescriptions/${prescriptionId}/send-email`, {
       method: 'POST',
+      body: JSON.stringify({ to_email: toEmail }),
     }),
 }
 

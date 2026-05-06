@@ -279,17 +279,51 @@ async def finalize_prescription(
     prescription_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> Any:
-    """Mark a prescription as final (locked for download/sending)."""
-    _verify_prescription_ownership(prescription_id, current_user["user_id"])
+    """Mark a prescription as final and notify linked pharmacy admins."""
+    user_id = current_user["user_id"]
+    prescription = _verify_prescription_ownership(prescription_id, user_id)
 
-    db.table("prescriptions").update(
-        {
-            "status": "final",
-            "updated_at": datetime.utcnow().isoformat(),
-        }
-    ).eq("id", prescription_id).execute()
+    now = datetime.utcnow().isoformat()
+    db.table("prescriptions").update({"status": "final", "updated_at": now}).eq("id", prescription_id).execute()
+
+    try:
+        _notify_pharmacies_on_finalize(prescription_id, user_id, prescription.get("patient_id"))
+    except Exception:
+        pass
+
     result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
     return result.data
+
+
+def _notify_pharmacies_on_finalize(prescription_id: str, doctor_id: str, patient_id: Optional[str]) -> None:
+    links = db.table("pharmacy_doctors").select("pharmacy_id").eq("doctor_id", doctor_id).eq("status", "active").execute()
+    if not links.data:
+        return
+
+    doctor_row = db.table("users").select("name").eq("id", doctor_id).single().execute()
+    doctor_name = (doctor_row.data or {}).get("name") or "Médico"
+
+    patient_name = "Paciente"
+    if patient_id:
+        p = db.table("patients").select("name").eq("id", patient_id).single().execute()
+        if p.data:
+            patient_name = p.data.get("name") or "Paciente"
+
+    message = f"Nova prescrição finalizada por {doctor_name} — {patient_name}"
+
+    for link in links.data:
+        admins = db.table("users").select("id").eq("pharmacy_id", link["pharmacy_id"]).eq("role", "pharmacy_admin").execute()
+        for admin in (admins.data or []):
+            db.table("notifications").insert({
+                "user_id": admin["id"],
+                "type": "info",
+                "message": message,
+                "read": False,
+            }).execute()
+
+    db.table("prescriptions").update(
+        {"pharmacy_notified_at": datetime.utcnow().isoformat()}
+    ).eq("id", prescription_id).execute()
 
 
 @router.post("/{prescription_id}/feedback")

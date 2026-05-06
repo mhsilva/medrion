@@ -395,10 +395,15 @@ async def download_pharmacy_prescription(
 @router.post("/me/prescriptions/{prescription_id}/send-email")
 async def send_prescription_email(
     prescription_id: str,
+    payload: dict[str, Any],
     current_user: dict = Depends(_require_pharmacy_admin),
 ) -> Any:
     user_id = current_user["user_id"]
     pharmacy_id = _get_pharmacy_id(user_id)
+
+    to_email = (payload.get("to_email") or "").strip()
+    if not to_email or "@" not in to_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail inválido")
 
     pharmacy_result = db.table("pharmacies").select("*").eq("id", pharmacy_id).single().execute()
     if not pharmacy_result.data:
@@ -446,10 +451,7 @@ async def send_prescription_email(
 
     docx_bytes = generate_docx(prescription_text, prescription_header, patient)
     patient_name = patient.get("name") or "Paciente"
-    to_email = pharmacy.get("responsible_email") or ""
-
-    if not to_email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Farmácia sem e-mail cadastrado")
+    _ = pharmacy  # pharmacy data available if needed for future use
 
     send_prescription_to_pharmacy(to_email, docx_bytes, patient_name)
 
