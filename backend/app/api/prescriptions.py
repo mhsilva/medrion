@@ -229,10 +229,7 @@ async def generate_new_prescription(
             additional_context=data.additional_context,
         )
     except Exception as exc:
-        # Mark as failed
-        db.table("prescriptions").update({"status": "failed"}).eq(
-            "id", prescription_id
-        ).execute()
+        db.table("prescriptions").delete().eq("id", prescription_id).execute()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI generation failed: {exc}",

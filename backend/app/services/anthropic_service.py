@@ -315,12 +315,12 @@ async def generate_prescription(
         {
             "type": "text",
             "text": SYSTEM_PROMPT,
-            "cache_control": {"type": "ephemeral", "ttl": 3600},
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
         },
         {
             "type": "text",
             "text": doctor_prefs_text + "\n\n" + actives_text,
-            "cache_control": {"type": "ephemeral", "ttl": 3600},
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
         },
     ]
 
