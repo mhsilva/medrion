@@ -44,10 +44,14 @@ async def supabase_auth_webhook(payload: dict[str, Any]) -> dict:
     if existing.data:
         return {"status": "already_exists"}
 
+    meta = record.get("raw_user_meta_data") or {}
+    account_type = meta.get("account_type", "doctor")
+    role = "pharmacy_admin" if account_type == "pharmacy" else "doctor"
+
     db.table("users").insert({
         "id": user_id,
         "email": email,
-        "role": "doctor",
+        "role": role,
         "subscription_status": "trial",
         "trial_prescriptions_used": 0,
         "onboarding_completed": False,

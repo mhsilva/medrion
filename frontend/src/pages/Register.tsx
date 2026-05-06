@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usersApi, pharmacyApi } from '../services/api'
+import { supabase } from '../services/supabase'
 import { Button } from '../components/ui/Button'
 import { Input, Select } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
@@ -236,7 +237,6 @@ function PharmacyRegisterForm() {
   const [errors, setErrors] = useState<Partial<PharmacyFormData>>({})
   const [loading, setLoading] = useState(false)
 
-  const { signUpWithEmail } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -262,7 +262,12 @@ function PharmacyRegisterForm() {
     if (!validate()) return
     setLoading(true)
     try {
-      await signUpWithEmail(form.email, form.password, form.name)
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { name: form.name, account_type: 'pharmacy' } },
+      })
+      if (error) throw new Error(error.message)
       await usersApi.updateProfile({ name: form.name })
       toast.success('Conta criada! Complete o cadastro da farmácia.')
       navigate('/onboarding/farmacia')
