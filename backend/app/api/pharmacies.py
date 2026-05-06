@@ -59,22 +59,20 @@ async def pharmacy_onboarding_step1(
             detail="CNPJ já cadastrado",
         )
 
+    db.table("pharmacies").insert(
+        {
+            "name": data.name,
+            "cnpj": data.cnpj,
+            "responsible_name": data.responsible_name,
+            "responsible_email": data.responsible_email,
+            "phone": data.phone,
+            "subscription_status": "pending",
+            "plan_seats": 10,
+        }
+    ).execute()
+
     pharmacy_result = (
-        db.table("pharmacies")
-        .insert(
-            {
-                "name": data.name,
-                "cnpj": data.cnpj,
-                "responsible_name": data.responsible_name,
-                "responsible_email": data.responsible_email,
-                "phone": data.phone,
-                "subscription_status": "pending",
-                "plan_seats": 10,
-            }
-        )
-        .select()
-        .single()
-        .execute()
+        db.table("pharmacies").select("*").eq("cnpj", data.cnpj).single().execute()
     )
 
     if not pharmacy_result.data:
@@ -153,14 +151,8 @@ async def update_my_pharmacy(
     if not update_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum campo para atualizar")
 
-    result = (
-        db.table("pharmacies")
-        .update(update_data)
-        .eq("id", pharmacy_id)
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("pharmacies").update(update_data).eq("id", pharmacy_id).execute()
+    result = db.table("pharmacies").select("*").eq("id", pharmacy_id).single().execute()
     return result.data
 
 
@@ -243,21 +235,15 @@ def _create_invite(pharmacy_id: str, pharmacy_name: str, email: str) -> dict:
     if existing.data:
         return {"email": email, "status": "already_pending"}
 
-    result = (
-        db.table("pharmacy_invites")
-        .insert(
-            {
-                "pharmacy_id": pharmacy_id,
-                "email": email,
-                "token": token,
-                "status": "pending",
-                "expires_at": expires_at,
-            }
-        )
-        .select()
-        .single()
-        .execute()
-    )
+    db.table("pharmacy_invites").insert(
+        {
+            "pharmacy_id": pharmacy_id,
+            "email": email,
+            "token": token,
+            "status": "pending",
+            "expires_at": expires_at,
+        }
+    ).execute()
 
     try:
         send_pharmacy_invite_email(email, pharmacy_name, token)
