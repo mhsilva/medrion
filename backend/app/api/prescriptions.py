@@ -284,7 +284,7 @@ async def finalize_prescription(
     prescription = _verify_prescription_ownership(prescription_id, user_id)
 
     now = datetime.utcnow().isoformat()
-    db.table("prescriptions").update({"status": "final", "updated_at": now}).eq("id", prescription_id).execute()
+    db.table("prescriptions").update({"status": "final", "finalized_at": now, "updated_at": now}).eq("id", prescription_id).execute()
 
     try:
         _notify_pharmacies_on_finalize(prescription_id, user_id, prescription.get("patient_id"))

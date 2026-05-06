@@ -48,6 +48,7 @@ export interface PharmacyPrescription {
   user_id: string
   status: string
   created_at: string
+  finalized_at: string | null
   docx_url: string | null
   patients: { name: string } | null
 }

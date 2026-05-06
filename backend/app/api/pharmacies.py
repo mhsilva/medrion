@@ -315,10 +315,10 @@ async def list_pharmacy_prescriptions(
 
     result = (
         db.table("prescriptions")
-        .select("id, patient_id, user_id, status, created_at, docx_url, patients(name)")
+        .select("id, patient_id, user_id, status, created_at, finalized_at, docx_url, patients(name)")
         .in_("user_id", doctor_ids)
         .eq("status", "final")
-        .order("created_at", desc=True)
+        .order("finalized_at", desc=True)
         .limit(500)
         .execute()
     )

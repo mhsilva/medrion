@@ -62,7 +62,7 @@ function parseInviteMessage(raw: string): { text: string; token: string } | null
   return null
 }
 
-function NotificationBell() {
+function NotificationBell({ refreshTrigger }: { refreshTrigger: number }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -71,7 +71,7 @@ function NotificationBell() {
     notificationsApi.getNotifications()
       .then(data => setNotifications(Array.isArray(data) ? data : []))
       .catch(() => {})
-  }, [])
+  }, [refreshTrigger])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -315,63 +315,6 @@ function DoctorsPanel({
 
 // ─── Prescriptions panel ──────────────────────────────────────────────────────
 
-function SendEmailModal({
-  prescription,
-  defaultEmail,
-  onClose,
-}: {
-  prescription: PharmacyPrescription
-  defaultEmail: string
-  onClose: () => void
-}) {
-  const [email, setEmail] = useState(defaultEmail)
-  const [loading, setLoading] = useState(false)
-  const toast = useToast()
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || !email.includes('@')) { toast.error('E-mail inválido'); return }
-    setLoading(true)
-    try {
-      await pharmacyApi.sendPrescriptionEmail(prescription.id, email.trim())
-      toast.success(`Prescrição enviada para ${email.trim()}`)
-      onClose()
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
-    } finally {
-      setLoading(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Enviar prescrição por e-mail</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{prescription.patients?.name || '—'}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-        </div>
-        <form onSubmit={handleSend} className="p-4 space-y-4">
-          <Input
-            label="Enviar para"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="email@destino.com.br"
-            required
-          />
-          <p className="text-xs text-gray-400">O arquivo .docx da prescrição será enviado como anexo.</p>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" fullWidth onClick={onClose}>Cancelar</Button>
-            <Button type="submit" fullWidth loading={loading}>Enviar</Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
 function PrescriptionsPanel({
   prescriptions,
   doctors,
@@ -389,13 +332,13 @@ function PrescriptionsPanel({
 }) {
   const toast = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
-  const [emailModal, setEmailModal] = useState<PharmacyPrescription | null>(null)
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null)
 
   const doctorMap = new Map(doctors.map(d => [d.id, d.name || d.email]))
 
   const filtered = selectedDoctor
     ? prescriptions.filter(p => p.user_id === selectedDoctor.id)
-    : prescriptions.filter(p => isToday(p.created_at))
+    : prescriptions.filter(p => isToday(p.finalized_at ?? p.created_at))
 
   const title = selectedDoctor
     ? `Prescrições — ${selectedDoctor.name || selectedDoctor.email}`
@@ -411,6 +354,19 @@ function PrescriptionsPanel({
       toast.error(err instanceof Error ? err.message : 'Erro ao baixar')
     } finally {
       setDownloading(null)
+    }
+  }
+
+  const handleSendEmail = async (p: PharmacyPrescription) => {
+    if (!pharmacyEmail) { toast.error('E-mail da farmácia não cadastrado'); return }
+    setSendingEmail(p.id)
+    try {
+      await pharmacyApi.sendPrescriptionEmail(p.id, pharmacyEmail)
+      toast.success(`Prescrição enviada para ${pharmacyEmail}`)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+    } finally {
+      setSendingEmail(null)
     }
   }
 
@@ -464,10 +420,11 @@ function PrescriptionsPanel({
                         {downloading === p.id ? '...' : 'Baixar'}
                       </button>
                       <button
-                        onClick={() => setEmailModal(p)}
-                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors"
+                        onClick={() => handleSendEmail(p)}
+                        disabled={sendingEmail === p.id}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors disabled:opacity-50"
                       >
-                        📧 E-mail
+                        {sendingEmail === p.id ? '...' : '📧 E-mail'}
                       </button>
                     </div>
                   </div>
@@ -478,13 +435,6 @@ function PrescriptionsPanel({
         </div>
       </div>
 
-      {emailModal && (
-        <SendEmailModal
-          prescription={emailModal}
-          defaultEmail={pharmacyEmail || ''}
-          onClose={() => setEmailModal(null)}
-        />
-      )}
     </>
   )
 }
@@ -503,6 +453,7 @@ export default function PharmacyDashboard() {
   const [loadingDoctors, setLoadingDoctors] = useState(true)
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(true)
 
+  const [notifRefreshKey, setNotifRefreshKey] = useState(0)
   const seenIdsRef = useRef<Set<string>>(new Set())
   const isFirstFetchRef = useRef(true)
 
@@ -521,6 +472,7 @@ export default function PharmacyDashboard() {
           newOnes.forEach(p => seenIdsRef.current.add(p.id))
           playBeep()
           toast.success(`${newOnes.length} nova(s) prescrição(ões) recebida(s)`)
+          setNotifRefreshKey(k => k + 1)
         }
       }
     } catch {
@@ -581,7 +533,7 @@ export default function PharmacyDashboard() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <NotificationBell />
+            <NotificationBell refreshTrigger={notifRefreshKey} />
             <span className="text-sm text-gray-500 hidden sm:block">{profile?.email}</span>
             <button onClick={signOut} className="text-sm text-gray-500 hover:text-gray-700 underline">Sair</button>
           </div>
