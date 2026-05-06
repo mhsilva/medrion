@@ -109,9 +109,10 @@ async def reactivate_user(user_id: str, _admin: dict = Depends(require_admin)) -
     return {"ok": True}
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: str, _admin: dict = Depends(require_admin)) -> None:
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str, _admin: dict = Depends(require_admin)) -> dict:
     db.auth.admin.delete_user(user_id)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -588,9 +589,10 @@ async def resolve_alert(alert_id: str, admin: dict = Depends(require_admin)) -> 
     return _fetch_one("safety_alerts_urgent", alert_id)
 
 
-@router.delete("/alerts/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_alert(alert_id: str, _admin: dict = Depends(require_admin)) -> None:
+@router.delete("/alerts/{alert_id}")
+async def delete_alert(alert_id: str, _admin: dict = Depends(require_admin)) -> dict:
     db.table("safety_alerts_urgent").delete().eq("id", alert_id).execute()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

@@ -483,7 +483,7 @@ export const adminApi = {
 
   suspendUser: (id: string) => request<{ ok: boolean }>(`/admin/users/${id}/suspend`, { method: 'POST' }),
   reactivateUser: (id: string) => request<{ ok: boolean }>(`/admin/users/${id}/reactivate`, { method: 'POST' }),
-  deleteUser: (id: string) => request<void>(`/admin/users/${id}`, { method: 'DELETE' }),
+  deleteUser: (id: string) => request<{ ok: boolean }>(`/admin/users/${id}`, { method: 'DELETE' }),
   exportUsers: () => downloadBlob('/admin/users/export/csv', `medrion_users_${new Date().toISOString().slice(0, 10)}.csv`),
 
   listPharmacies: () => request<AdminPharmacy[]>('/admin/pharmacies'),
@@ -524,7 +524,7 @@ export const adminApi = {
   createAlert: (data: Partial<UrgentAlert>) =>
     request<UrgentAlert>('/admin/alerts', { method: 'POST', body: JSON.stringify(data) }),
   resolveAlert: (id: string) => request<UrgentAlert>(`/admin/alerts/${id}/resolve`, { method: 'PUT' }),
-  deleteAlert: (id: string) => request<void>(`/admin/alerts/${id}`, { method: 'DELETE' }),
+  deleteAlert: (id: string) => request<{ ok: boolean }>(`/admin/alerts/${id}`, { method: 'DELETE' }),
 
   listProtocolVersions: () => request<ProtocolVersion[]>('/admin/protocol-versions'),
   createProtocolVersion: (data: { version_number: string; description: string; system_prompt_text: string }) =>
