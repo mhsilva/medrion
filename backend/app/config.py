@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRICE_DOCTOR: str = ""
+    STRIPE_PRICE_PHARMACY_10: str = ""
+    STRIPE_PRICE_PHARMACY_20: str = ""
+    STRIPE_PRICE_PHARMACY_30: str = ""
+    CRON_SECRET: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env", "extra": "ignore"}

@@ -9,12 +9,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { session, profile, loading, profileLoading } = useAuth()
+  const { session, profile, loading, profileLoading, mfaRequired } = useAuth()
   const location = useLocation()
 
   if (loading || profileLoading) return <PageLoader />
 
   if (!session) return <Navigate to="/login" replace />
+
+  if (mfaRequired && location.pathname !== '/verificar-codigo') {
+    return <Navigate to="/verificar-codigo" replace />
+  }
 
   if (profile && !profile.onboarding_completed) {
     const onboardingPath =
@@ -22,6 +26,10 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     if (location.pathname !== onboardingPath) {
       return <Navigate to={onboardingPath} replace />
     }
+  }
+
+  if (profile && profile.subscription_status === 'suspended' && location.pathname !== '/pagamento-pendente') {
+    return <Navigate to="/pagamento-pendente" replace />
   }
 
   // pharmacy_admin sem onboarding completo pode chegar em /onboarding/farmacia — ok

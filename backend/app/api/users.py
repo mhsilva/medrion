@@ -2,10 +2,12 @@
 User profile and onboarding routes for Medrion.
 """
 
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.database import db
 from app.middleware.auth import get_current_user
@@ -173,6 +175,100 @@ async def set_account_type(
 # ---------------------------------------------------------------------------
 # Legal acceptance
 # ---------------------------------------------------------------------------
+
+@router.get("/me/pending-alerts")
+async def get_pending_alerts(current_user: dict = Depends(get_current_user)) -> Any:
+    """Returns active urgent alerts that should display a blocking banner on login.
+    The frontend dismisses them by registering a notification with type='safety_alert'."""
+    user_id = current_user["user_id"]
+    alerts = (
+        db.table("safety_alerts_urgent")
+        .select("id, title, description, source, severity, active_id, created_at")
+        .eq("status", "active")
+        .eq("show_on_login", True)
+        .order("severity")
+        .execute()
+        .data
+        or []
+    )
+    if not alerts:
+        return []
+    seen = (
+        db.table("notifications")
+        .select("message")
+        .eq("user_id", user_id)
+        .eq("type", "safety_alert")
+        .execute()
+        .data
+        or []
+    )
+    seen_ids: set[str] = set()
+    for n in seen:
+        try:
+            payload = n.get("message")
+            if isinstance(payload, str):
+                data = __import__("json").loads(payload)
+                if isinstance(data, dict) and data.get("alert_id"):
+                    seen_ids.add(data["alert_id"])
+        except Exception:
+            pass
+    return [a for a in alerts if a["id"] not in seen_ids]
+
+
+@router.post("/me/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str, current_user: dict = Depends(get_current_user)) -> dict:
+    user_id = current_user["user_id"]
+    import json as _json
+
+    db.table("notifications").insert({
+        "user_id": user_id,
+        "type": "safety_alert",
+        "message": _json.dumps({"alert_id": alert_id, "acknowledged_at": datetime.now(timezone.utc).isoformat()}),
+        "read": True,
+    }).execute()
+    return {"ok": True}
+
+
+@router.get("/me/export")
+async def export_my_data(current_user: dict = Depends(get_current_user)) -> Response:
+    """LGPD: returns a CSV bundle with the doctor's profile + patients + prescriptions."""
+    user_id = current_user["user_id"]
+
+    user = db.table("users").select("*").eq("id", user_id).single().execute().data or {}
+    patients = db.table("patients").select("*").eq("user_id", user_id).execute().data or []
+    prescriptions = db.table("prescriptions").select("*").eq("user_id", user_id).execute().data or []
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+
+    writer.writerow(["[USER PROFILE]"])
+    writer.writerow(list(user.keys()))
+    writer.writerow(list(user.values()))
+    writer.writerow([])
+
+    writer.writerow(["[PATIENTS]"])
+    if patients:
+        cols = list(patients[0].keys())
+        writer.writerow(cols)
+        for p in patients:
+            writer.writerow([p.get(c) for c in cols])
+    writer.writerow([])
+
+    writer.writerow(["[PRESCRIPTIONS]"])
+    if prescriptions:
+        cols = list(prescriptions[0].keys())
+        writer.writerow(cols)
+        for r in prescriptions:
+            writer.writerow([r.get(c) for c in cols])
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"medrion_meus_dados_{today}.csv"
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 
 @router.post("/legal/accept")
 async def record_legal_acceptance(

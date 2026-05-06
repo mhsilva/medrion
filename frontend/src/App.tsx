@@ -18,6 +18,10 @@ import Exams from './pages/Exams'
 import NewPrescription from './pages/NewPrescription'
 import PrescriptionDetail from './pages/PrescriptionDetail'
 import Profile from './pages/Profile'
+import Checkout from './pages/Checkout'
+import PaymentPending from './pages/PaymentPending'
+import VerifyOtp from './pages/VerifyOtp'
+import Admin from './pages/Admin'
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,8 +40,25 @@ export default function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Register />} />
+          <Route path="/verificar-codigo" element={<VerifyOtp />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/onboarding/farmacia" element={<PharmacyOnboarding />} />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute allowedRoles={['doctor', 'admin']}>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pagamento-pendente"
+            element={
+              <ProtectedRoute allowedRoles={['doctor', 'pharmacy_admin', 'admin']}>
+                <PaymentPending />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected routes */}
           <Route
@@ -102,6 +123,16 @@ export default function App() {
               <ProtectedLayout>
                 <Profile />
               </ProtectedLayout>
+            }
+          />
+
+          {/* Admin */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Admin />
+              </ProtectedRoute>
             }
           />
 

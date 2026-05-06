@@ -122,6 +122,80 @@ def send_pharmacy_invite_email(to: str, pharmacy_name: str, token: str) -> None:
         logger.error("Failed to send invite email to %s: %s", to, exc)
 
 
+def _send(to: str, subject: str, html: str) -> None:
+    if not _resend_available():
+        logger.debug("RESEND_API_KEY not configured — skipping email to %s", to)
+        return
+    try:
+        import resend
+
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": "Medrion <noreply@medrion.com.br>",
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        })
+        logger.info("Email '%s' sent to %s", subject, to)
+    except Exception as exc:
+        logger.error("Failed to send email '%s' to %s: %s", subject, to, exc)
+
+
+def send_payment_failed_email(to: str) -> None:
+    portal_url = f"{settings.FRONTEND_URL}/perfil"
+    _send(
+        to,
+        "Falha no pagamento — Medrion",
+        f"""
+        <h2>Falha no pagamento</h2>
+        <p>Não conseguimos processar sua última cobrança no Medrion.</p>
+        <p>Atualize seu cartão para evitar a suspensão do acesso:</p>
+        <a href="{portal_url}" style="display:inline-block;background:#0F3D5C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">Atualizar cartão</a>
+        <p style="color:#888;font-size:12px;">Em caso de dúvidas, fale com suporte@medrion.com.br</p>
+        """,
+    )
+
+
+def send_subscription_suspended_email(to: str) -> None:
+    portal_url = f"{settings.FRONTEND_URL}/pagamento-pendente"
+    _send(
+        to,
+        "Acesso suspenso — Medrion",
+        f"""
+        <h2>Seu acesso foi suspenso</h2>
+        <p>Identificamos falha de pagamento e seu acesso ao Medrion foi suspenso.</p>
+        <p>Reative seu cartão para retomar imediatamente:</p>
+        <a href="{portal_url}" style="display:inline-block;background:#C0392B;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">Reativar acesso</a>
+        """,
+    )
+
+
+def send_subscription_reactivated_email(to: str) -> None:
+    _send(
+        to,
+        "Acesso reativado — Medrion",
+        """
+        <h2>Acesso restaurado</h2>
+        <p>Seu pagamento foi confirmado e o acesso ao Medrion já está reativado.</p>
+        <p>Bom trabalho!</p>
+        """,
+    )
+
+
+def send_pharmacy_suspended_email(to: str, pharmacy_name: str) -> None:
+    direct_url = f"{settings.FRONTEND_URL}/cadastro"
+    _send(
+        to,
+        "Acesso via farmácia foi suspenso — Medrion",
+        f"""
+        <h2>Acesso suspenso</h2>
+        <p>O acesso fornecido pela farmácia <strong>{pharmacy_name}</strong> ao Medrion foi suspenso por falta de pagamento.</p>
+        <p>Você pode contatar a farmácia ou assinar diretamente:</p>
+        <a href="{direct_url}" style="display:inline-block;background:#0F3D5C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">Assinar diretamente</a>
+        """,
+    )
+
+
 def send_prescription_to_pharmacy(
     to: str, docx_bytes: bytes, patient_name: str
 ) -> None:

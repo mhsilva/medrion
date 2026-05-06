@@ -9,7 +9,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.database import db
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, require_active_subscription
 from app.models.schemas import (
     ChatMessage,
     ChatRequest,
@@ -132,12 +132,35 @@ async def get_prescription(
     return _verify_prescription_ownership(prescription_id, current_user["user_id"])
 
 
+@router.get("/{prescription_id}/discontinued-actives")
+async def get_discontinued_actives_in_prescription(
+    prescription_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> Any:
+    """Returns the list of discontinued actives whose commercial_name appears
+    in this prescription's output_text or edited_output. Used by the frontend
+    to show a [DESCONTINUADO] tag with tooltip."""
+    rx = _verify_prescription_ownership(prescription_id, current_user["user_id"])
+    text = (rx.get("edited_output") or rx.get("output_text") or "").lower()
+    if not text:
+        return []
+    discontinued = (
+        db.table("actives")
+        .select("id, commercial_name, discontinuation_reason, discontinued_at")
+        .eq("status", "discontinued")
+        .execute()
+        .data
+        or []
+    )
+    return [a for a in discontinued if a["commercial_name"] and a["commercial_name"].lower() in text]
+
+
 @router.post(
     "/generate", response_model=PrescriptionResponse, status_code=status.HTTP_201_CREATED
 )
 async def generate_new_prescription(
     data: PrescriptionCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_active_subscription),
 ) -> Any:
     """
     Generate a new AI prescription for a patient.
@@ -288,8 +311,36 @@ async def finalize_prescription(
     except Exception:
         pass
 
+    try:
+        _record_active_usage(prescription_id, user_id)
+    except Exception:
+        pass
+
     result = db.table("prescriptions").select("*").eq("id", prescription_id).single().execute()
     return result.data
+
+
+def _record_active_usage(prescription_id: str, user_id: str) -> None:
+    """Parses the prescription text and registers each matching active in active_usage_stats."""
+    rx = db.table("prescriptions").select("output_text, edited_output").eq("id", prescription_id).single().execute().data
+    if not rx:
+        return
+    text = (rx.get("edited_output") or rx.get("output_text") or "").lower()
+    if not text:
+        return
+    actives = db.table("actives").select("id, commercial_name").eq("status", "active").execute().data or []
+    matched_ids: set[str] = set()
+    for active in actives:
+        name = (active.get("commercial_name") or "").lower().strip()
+        if name and name in text:
+            matched_ids.add(active["id"])
+    if not matched_ids:
+        return
+    rows = [
+        {"active_id": aid, "prescription_id": prescription_id, "user_id": user_id}
+        for aid in matched_ids
+    ]
+    db.table("active_usage_stats").insert(rows).execute()
 
 
 def _notify_pharmacies_on_finalize(prescription_id: str, doctor_id: str, patient_id: Optional[str]) -> None:

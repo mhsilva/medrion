@@ -15,6 +15,7 @@ export default function PrescriptionDetail() {
   const [prescription, setPrescription] = useState<Prescription | null>(null)
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(true)
+  const [discontinued, setDiscontinued] = useState<{ id: string; commercial_name: string; discontinuation_reason?: string; discontinued_at?: string }[]>([])
 
   const load = useCallback(async () => {
     if (!id) return
@@ -26,6 +27,10 @@ export default function PrescriptionDetail() {
         const pt = await patientsApi.getPatient(rx.patient_id)
         setPatient(pt)
       }
+      try {
+        const disc = await prescriptionsApi.getDiscontinuedActives(id)
+        setDiscontinued(disc)
+      } catch {/* opcional */}
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao carregar prescricao'
       toast.error(msg)
@@ -64,6 +69,24 @@ export default function PrescriptionDetail() {
         </svg>
         {patient.name}
       </button>
+
+      {discontinued.length > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
+          <p className="text-sm font-semibold text-orange-900 mb-1">
+            ⚠ Esta prescrição contém {discontinued.length} ativo(s) descontinuado(s)
+          </p>
+          <ul className="text-xs text-orange-800 space-y-1 mt-1">
+            {discontinued.map(d => (
+              <li key={d.id}>
+                <span className="inline-block bg-orange-200 px-1.5 py-0.5 rounded text-orange-900 font-medium mr-1">[DESCONTINUADO]</span>
+                <strong>{d.commercial_name}</strong>
+                {d.discontinuation_reason && <span className="text-orange-700"> — {d.discontinuation_reason}</span>}
+                {d.discontinued_at && <span className="text-orange-600"> (em {new Date(d.discontinued_at).toLocaleDateString('pt-BR')})</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Step3View
         prescription={prescription}

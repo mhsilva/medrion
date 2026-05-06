@@ -1,7 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { pharmacyApi } from '../services/api'
-import { useAuth } from '../hooks/useAuth'
+import { pharmacyApi, billingApi } from '../services/api'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
@@ -209,46 +207,78 @@ function Step2Form({ onNext }: { onNext: () => void }) {
   )
 }
 
-function Step3Placeholder({ onFinish }: { onFinish: () => void }) {
+interface PlanOption {
+  seats: 10 | 20 | 30
+  price: number
+  perDoctor: number
+}
+
+const PLANS: PlanOption[] = [
+  { seats: 10, price: 2900, perDoctor: 290 },
+  { seats: 20, price: 4800, perDoctor: 240 },
+  { seats: 30, price: 6300, perDoctor: 210 },
+]
+
+function Step3Plans() {
+  const [selected, setSelected] = useState<10 | 20 | 30>(10)
+  const [loading, setLoading] = useState(false)
+  const toast = useToast()
+
+  const handleSubscribe = async () => {
+    setLoading(true)
+    try {
+      const { url } = await billingApi.pharmacyCheckout(selected)
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao iniciar checkout')
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="text-center space-y-6 py-4">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Escolha o pacote de assentos para a farmácia. Cada assento permite o acesso de um médico convidado.
+      </p>
+      <div className="space-y-3">
+        {PLANS.map(plan => {
+          const active = selected === plan.seats
+          return (
+            <button
+              key={plan.seats}
+              type="button"
+              onClick={() => setSelected(plan.seats)}
+              className={[
+                'w-full text-left rounded-lg border p-4 transition-all',
+                active ? 'border-primary bg-primary/5 ring-2 ring-primary' : 'border-gray-200 hover:border-gray-300',
+              ].join(' ')}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-gray-900">{plan.seats} assentos</p>
+                  <p className="text-xs text-gray-500">R$ {plan.perDoctor}/médico</p>
+                </div>
+                <p className="text-lg font-bold text-primary">R$ {plan.price.toLocaleString('pt-BR')}<span className="text-xs text-gray-500 font-normal">/mês</span></p>
+              </div>
+            </button>
+          )
+        })}
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">Farmácia cadastrada com sucesso!</h3>
-        <p className="text-gray-500 mt-2 text-sm">
-          Sua farmácia está pronta. A ativação do plano de assinaturas será disponibilizada em breve.
-        </p>
-      </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 text-left">
-        <p className="font-medium mb-1">O que você pode fazer agora:</p>
-        <ul className="space-y-1 list-disc list-inside">
-          <li>Convidar médicos para a plataforma</li>
-          <li>Acompanhar as prescrições geradas</li>
-          <li>Gerenciar o acesso da sua equipe</li>
-        </ul>
-      </div>
-      <Button onClick={onFinish} fullWidth size="lg">
-        Acessar painel da farmácia
+      <Button onClick={handleSubscribe} fullWidth size="lg" loading={loading}>
+        Continuar para pagamento
       </Button>
+      <p className="text-xs text-gray-400 text-center">
+        Pagamento processado pela Stripe.
+      </p>
     </div>
   )
 }
 
 export default function PharmacyOnboarding() {
   const [step, setStep] = useState<Step>(1)
-  const navigate = useNavigate()
-  const { refreshProfile } = useAuth()
 
   const handleStep1Done = () => setStep(2)
   const handleStep2Done = () => setStep(3)
-  const handleFinish = async () => {
-    await refreshProfile()
-    navigate('/farmacia/dashboard', { replace: true })
-  }
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center p-4">
@@ -272,7 +302,12 @@ export default function PharmacyOnboarding() {
             <Step2Form onNext={handleStep2Done} />
           </>
         )}
-        {step === 3 && <Step3Placeholder onFinish={handleFinish} />}
+        {step === 3 && (
+          <>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Ativar plano</h2>
+            <Step3Plans />
+          </>
+        )}
       </div>
     </div>
   )

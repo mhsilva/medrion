@@ -7,6 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin import router as admin_router
+from app.api.auth import router as auth_router
+from app.api.billing import router as billing_router
+from app.api.billing import webhook_router as billing_webhook_router
+from app.api.cron import router as cron_router
 from app.api.exams import router as exams_router
 from app.api.notifications import router as notifications_router
 from app.api.patients import router as patients_router
@@ -53,6 +57,10 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 app.include_router(webhook_router)
+app.include_router(billing_webhook_router)
+app.include_router(billing_router)
+app.include_router(cron_router)
+app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(notifications_router)
 app.include_router(patients_router)

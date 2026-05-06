@@ -5,6 +5,7 @@ import { notificationsApi, pharmacyApi } from '../services/api'
 import type { Notification } from '../types'
 import { differenceInDays, formatDate } from '../utils/format'
 import { useToast } from './ui/Toast'
+import { SafetyAlertBanner } from './SafetyAlertBanner'
 
 function BellIcon() {
   return (
@@ -179,6 +180,7 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-bg-secondary">
+      <SafetyAlertBanner />
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
       <div className="lg:pl-60 flex flex-col min-h-screen">

@@ -14,14 +14,14 @@
 | 4 | Módulo de exames (upload/formulário/texto) | ✅ Feito | — |
 | 5 | Integração Anthropic + geração .docx | ✅ Feito | Cache `1h` ativo |
 | 6 | Editor TipTap + handoff clínico + chat | ✅ Feito | — |
-| 7 | Stripe — médico direto (trial + assinatura + suspensão) | ❌ Pendente | Só trial hardcoded no banco; sem checkout, sem webhook Stripe |
+| 7 | Stripe — médico direto (trial + assinatura + suspensão) | ✅ Feito | Checkout, Customer Portal, webhooks `invoice.payment_failed`, `subscription.*` |
 | 8 | Painel da farmácia + convite de médicos | ✅ Feito | N farmácias/médico via `pharmacy_doctors` |
-| 9 | Stripe — farmácias (pacotes de seats) | ❌ Pendente | Sem checkout, sem webhook, seats hardcoded |
-| 10 | 2FA por e-mail (Resend) | ❌ Pendente | Login libera direto, sem OTP |
-| 11 | Notificações e-mail + in-app | 🟡 Parcial | In-app ✅ · E-mail: convite ✅, prescrição para farmácia ✅, demais gatilhos (trial, suspensão, sessão derrubada) ❌ |
-| 12 | Painel `/admin` completo | 🟡 Parcial | Backend ✅ (usuários, farmácias, ativos, alertas, stats) · Frontend `/admin` não existe |
-| 13 | LGPD — exportação + solicitação de exclusão | 🟡 Parcial | Exclusão via `mailto:` ✅ · Exportação CSV de dados do médico ❌ |
-| 14 | Sessão única (`current_session_id`) | ❌ Pendente | Middleware não valida session_id; múltiplas sessões simultâneas possíveis |
+| 9 | Stripe — farmácias (pacotes de seats) | ✅ Feito | Onboarding step 3 com checkout dos pacotes 10/20/30 |
+| 10 | 2FA por e-mail (Resend) | ✅ Feito | OTP 6 dígitos, 10min TTL, lock 30min após 5 tentativas |
+| 11 | Notificações e-mail + in-app | ✅ Feito | In-app + e-mails: convite, prescrição, payment_failed, suspended, reactivated, OTP, trial-d6/d7, sessão derrubada (parcial — gatilho de "novo dispositivo" depende de detectar mismatch no cliente) |
+| 12 | Painel `/admin` completo | ✅ Feito | Dashboard, Médicos, Farmácias, Ativos, Alertas, Protocolo, Analytics, Logs |
+| 13 | LGPD — exportação + solicitação de exclusão | ✅ Feito | `/perfil` → "Exportar meus dados" gera CSV (perfil + pacientes + prescrições) |
+| 14 | Sessão única (`current_session_id`) | ✅ Feito | Header `X-Session-Id` validado no middleware; mismatch → 401 |
 
 ---
 
@@ -29,67 +29,64 @@
 
 | # | Item | Status | Observação |
 |---|------|--------|------------|
-| 15 | Tabelas: `actives`, `protocol_versions`, `active_changes_log`, `safety_alerts_urgent`, `active_preview_sessions`, `active_usage_stats` | 🟡 Parcial | `actives` ✅ · `safety_alerts_urgent` ✅ · `protocol_versions`, `active_changes_log`, `active_preview_sessions`, `active_usage_stats` ❌ (não criadas) |
-| 16 | Migrar ativos do system prompt para o banco | ❓ A verificar | Tabela `actives` existe e é consultada; confirmar se dados foram populados |
-| 17 | Endpoint de injeção dinâmica na API | ✅ Feito | `actives` filtrados por preferências do médico e injetados no contexto a cada geração |
-| 18 | Painel `/admin/ativos` — listagem + formulário + publicação | 🟡 Parcial | Backend: CRUD + publish + discontinue ✅ · Frontend: página não existe |
-| 19 | Modal de pré-visualização (chamada real à API) | ❌ Pendente | Sem frontend e sem endpoint dedicado |
-| 20 | Sistema de versões do protocolo + rollback | ❌ Pendente | Tabela `protocol_versions` não criada; sem endpoints; sem frontend |
-| 21 | Importação e exportação CSV de ativos | ❌ Pendente | — |
-| 22 | Alertas urgentes + banner bloqueante no login | 🟡 Parcial | Backend: CRUD `safety_alerts_urgent` ✅ · Frontend: sem página `/admin/alertas`, sem banner no login |
-| 23 | Analytics de uso de ativos (`/admin/analytics`) | ❌ Pendente | Tabela `active_usage_stats` não criada; sem extração de ativos do output; sem dashboard |
-| 24 | Tag `[DESCONTINUADO]` no histórico de prescrições | ❌ Pendente | — |
-| 25 | Cron job de backup semanal CSV | ❌ Pendente | — |
+| 15 | Tabelas: `actives`, `protocol_versions`, `active_changes_log`, `safety_alerts_urgent`, `active_preview_sessions`, `active_usage_stats` | ✅ Feito | Todas no schema 001; 002 adiciona `current_session_id`, `mfa_verified_at`, `otp_codes`, `prescriptions.finalized_at` |
+| 16 | Migrar ativos do system prompt para o banco | ❓ Operacional | Tabela está pronta — basta o admin popular via UI ou import CSV |
+| 17 | Endpoint de injeção dinâmica na API | ✅ Feito | `actives` filtrados por preferências do médico e injetados no contexto |
+| 18 | Painel `/admin/ativos` — listagem + formulário + publicação | ✅ Feito | Backend CRUD completo + frontend com 4 blocos, publish/discontinue, histórico de alterações, reason no edit publicado |
+| 19 | Modal de pré-visualização (chamada real à API) | ✅ Feito | `POST /admin/actives/{id}/preview` chama Anthropic com ativo em rascunho; modal com "Aprovar e publicar" |
+| 20 | Sistema de versões do protocolo + rollback | ✅ Feito | `/admin/protocolo` com criar/publicar/rollback (motivo obrigatório) |
+| 21 | Importação e exportação CSV de ativos | ✅ Feito | Import vira tudo `draft`; duplicatas viram "(importado [data])"; export filtra `status=active` |
+| 22 | Alertas urgentes + banner bloqueante no login | ✅ Feito | CRUD em `/admin/alertas` + `<SafetyAlertBanner>` modal "Li e estou ciente" no Layout, registra notificação `safety_alert` ao dispensar |
+| 23 | Analytics de uso de ativos (`/admin/analytics`) | ✅ Feito | Parser por `commercial_name` no `finalize_prescription` popula `active_usage_stats`; dashboard com top 20 + breakdown por fornecedor/categoria |
+| 24 | Tag `[DESCONTINUADO]` no histórico de prescrições | ✅ Feito | `GET /prescriptions/{id}/discontinued-actives` cruza nomes e renderiza banner laranja em `/prescricoes/:id` |
+| 25 | Cron job de backup semanal CSV | ✅ Feito | `GET /cron/weekly-backup` (X-Cron-Secret) faz upload em `Storage/backups/`, retém 12 |
 
 ---
 
-## MIGRAÇÃO SQL PENDENTE (Supabase)
+## SETUP MANUAL FORA DO CÓDIGO
 
-Itens que precisam rodar no SQL Editor antes de funcionar:
+### Supabase
+1. Rodar `supabase/migrations/002_phase2_security.sql` no SQL Editor
+2. Criar bucket privado `backups` no Storage para o cron de backup semanal
 
-```sql
--- Adicionado na sessão atual (filtro por data de finalização)
-ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS finalized_at TIMESTAMPTZ;
+### Stripe Dashboard
+1. Criar 4 prices (BRL, recurring monthly):
+   - `STRIPE_PRICE_DOCTOR` — R$ 497/mês
+   - `STRIPE_PRICE_PHARMACY_10` — R$ 2.900/mês
+   - `STRIPE_PRICE_PHARMACY_20` — R$ 4.800/mês
+   - `STRIPE_PRICE_PHARMACY_30` — R$ 6.300/mês
+2. Configurar webhook endpoint: `https://<railway-url>/billing/webhook`
+   - Eventos: `checkout.session.completed`, `customer.subscription.created/updated/deleted`, `invoice.payment_failed`, `invoice.paid`
+3. Configurar Smart Retries do Stripe para "3 dias e cancelar" (Settings → Subscriptions → Manage failed payment retries)
+4. Copiar `Webhook Signing Secret` para `STRIPE_WEBHOOK_SECRET`
 
--- Fase 2 — a criar quando iniciar módulo de atualizações
-CREATE TABLE IF NOT EXISTS protocol_versions ( ... );
-CREATE TABLE IF NOT EXISTS active_changes_log ( ... );
-CREATE TABLE IF NOT EXISTS active_preview_sessions ( ... );
-CREATE TABLE IF NOT EXISTS active_usage_stats ( ... );
-```
+### Railway
+- Adicionar env vars: `STRIPE_*`, `RESEND_API_KEY`, `CRON_SECRET`
+- Configurar Railway Cron:
+  - Diário 09:00 UTC: `GET /cron/trial-reminders` (header `X-Cron-Secret: <CRON_SECRET>`)
+  - Domingos 03:00 UTC: `GET /cron/weekly-backup`
 
----
-
-## ORDEM SUGERIDA PARA PRÓXIMAS SPRINTS
-
-### Sprint A — Pagamentos (desbloqueador de receita)
-1. Stripe checkout médico direto (trial → pago)
-2. Webhook `invoice.payment_failed` → suspensão no dia 3
-3. Stripe farmácias — checkout por pacote de seats
-4. Página `/pagamento-pendente` (bloqueio quando suspenso)
-
-### Sprint B — Segurança crítica
-5. Sessão única: gravar `current_session_id` no login, validar no middleware
-6. 2FA por e-mail via Resend (OTP 6 dígitos, expira em 10 min)
-
-### Sprint C — Admin frontend
-7. Página `/admin` com lista de médicos, farmácias e métricas
-8. Página `/admin/ativos` — listagem + formulário + publicar/descontinuar
-9. Página `/admin/alertas` + banner bloqueante no login dos médicos
-
-### Sprint D — Módulo de atualizações completo
-10. Tabelas `protocol_versions`, `active_changes_log`, `active_preview_sessions`, `active_usage_stats`
-11. Modal de pré-visualização de ativo (gera prescrição de teste)
-12. Sistema de versões do protocolo + rollback
-13. Importação/exportação CSV de ativos
-14. Analytics de uso de ativos
-15. Tag `[DESCONTINUADO]` no histórico
-
-### Sprint E — Qualidade e compliance
-16. Restante dos gatilhos de e-mail (trial expirando, suspensão, sessão derrubada)
-17. Exportação LGPD — CSV de dados do médico
-18. Cron job de backup semanal
+### Frontend (Cloudflare Pages)
+- `VITE_API_URL` → URL do Railway
 
 ---
 
-*Medrion · Status v1.1 · Maio 2026*
+## ARQUIVOS NOVOS NESTA SPRINT
+
+**Backend**
+- `app/services/stripe_service.py` — wrapper Stripe
+- `app/services/auth_service.py` — OTP + session
+- `app/api/billing.py` — checkout, portal, webhook
+- `app/api/auth.py` — /auth/start-session, verify-otp, resend-otp
+- `app/api/cron.py` — trial reminders + weekly backup
+- `app/api/admin.py` — reescrito com schemas corretos + 4 sprints de endpoints
+- `supabase/migrations/002_phase2_security.sql`
+
+**Frontend**
+- `src/pages/Admin.tsx` — painel completo (8 abas)
+- `src/pages/Checkout.tsx`, `PaymentPending.tsx`, `VerifyOtp.tsx`
+- `src/components/SafetyAlertBanner.tsx`
+
+---
+
+*Medrion · Status v2.0 · Maio 2026*

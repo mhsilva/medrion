@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { usersApi } from '../services/api'
+import { usersApi, billingApi, lgpdApi } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { Input, Select, PhoneInput } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
@@ -53,6 +54,21 @@ function Toggle({ checked, onChange, label, hint }: {
 export default function Profile() {
   const { profile, refreshProfile } = useAuth()
   const toast = useToast()
+  const navigate = useNavigate()
+  const [billingLoading, setBillingLoading] = useState(false)
+
+  const handleManageBilling = async () => {
+    setBillingLoading(true)
+    try {
+      const { url } = await billingApi.portal()
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao abrir portal')
+      setBillingLoading(false)
+    }
+  }
+
+  const handleStartCheckout = () => navigate('/checkout')
 
   // ── Section 1: Dados pessoais
   const [editPersonal, setEditPersonal] = useState(false)
@@ -335,6 +351,18 @@ export default function Profile() {
             </dd>
           </div>
         </dl>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {profile.subscription_status === 'trial' && (
+            <Button onClick={handleStartCheckout} size="sm">
+              Ativar plano agora
+            </Button>
+          )}
+          {(profile.subscription_status === 'active' || profile.subscription_status === 'suspended') && (
+            <Button onClick={handleManageBilling} size="sm" variant="outline" loading={billingLoading}>
+              Gerenciar assinatura
+            </Button>
+          )}
+        </div>
       </Card>
 
       {/* Section 5: LGPD */}
@@ -346,6 +374,19 @@ export default function Profile() {
             <dd className="col-span-2 text-sm text-gray-800">{formatDate(profile.legal_accepted_at) || '—'}</dd>
           </div>
         </dl>
+        <button
+          onClick={async () => {
+            try { await lgpdApi.exportMyData(); toast.success('Download iniciado') }
+            catch (err) { toast.error(err instanceof Error ? err.message : 'Erro') }
+          }}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium mr-4"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Exportar meus dados
+        </button>
         <a
           href={`mailto:privacidade@medrion.com.br?subject=Solicitacao%20de%20exclusao%20de%20dados&body=Solicito%20a%20exclusao%20de%20meus%20dados%20da%20plataforma%20Medrion.%20E-mail%3A%20${encodeURIComponent(profile.email)}`}
           className="inline-flex items-center gap-1.5 text-sm text-danger hover:underline font-medium"
