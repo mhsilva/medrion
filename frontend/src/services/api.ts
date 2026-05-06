@@ -102,6 +102,12 @@ export const usersApi = {
       method: 'POST',
       body: JSON.stringify({ types }),
     }),
+
+  setAccountType: (account_type: 'doctor' | 'pharmacy') =>
+    request<{ role: string }>('/users/account-type', {
+      method: 'POST',
+      body: JSON.stringify({ account_type }),
+    }),
 }
 
 // ─── Patients ─────────────────────────────────────────────────────────────────

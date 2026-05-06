@@ -153,6 +153,24 @@ async def onboarding_complete(current_user: dict = Depends(get_current_user)) ->
 
 
 # ---------------------------------------------------------------------------
+# Account type (Google OAuth users pick doctor vs pharmacy post-signup)
+# ---------------------------------------------------------------------------
+
+@router.post("/account-type")
+async def set_account_type(
+    payload: dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    account_type = payload.get("account_type")
+    if account_type not in ("doctor", "pharmacy"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account_type")
+    role = "pharmacy_admin" if account_type == "pharmacy" else "doctor"
+    user_id = current_user["user_id"]
+    db.table("users").update({"role": role}).eq("id", user_id).execute()
+    return {"role": role}
+
+
+# ---------------------------------------------------------------------------
 # Legal acceptance
 # ---------------------------------------------------------------------------
 

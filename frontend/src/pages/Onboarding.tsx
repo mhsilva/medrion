@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usersApi, uploadLogo } from '../services/api'
@@ -9,6 +9,86 @@ import { UF_LIST } from '../utils/format'
 import type { PrescriptionHeader } from '../types'
 
 const TOTAL_STEPS = 4
+
+// ─── Step 0 — account type selector (Google OAuth users) ─────────────────────
+
+function Step0({
+  onDoctor,
+  onPharmacy,
+}: {
+  onDoctor: () => void
+  onPharmacy: () => void
+}) {
+  const [loading, setLoading] = useState<'doctor' | 'pharmacy' | null>(null)
+  const toast = useToast()
+
+  const handleSelect = async (type: 'doctor' | 'pharmacy') => {
+    setLoading(type)
+    try {
+      await usersApi.setAccountType(type)
+      if (type === 'pharmacy') onPharmacy()
+      else onDoctor()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao configurar conta')
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6 py-2">
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Como você vai usar o Medrion?</h2>
+        <p className="text-sm text-gray-500">Escolha seu perfil para continuar</p>
+      </div>
+      <div className="grid gap-4">
+        <button
+          type="button"
+          onClick={() => handleSelect('doctor')}
+          disabled={!!loading}
+          className="flex items-center gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all text-left disabled:opacity-60"
+        >
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900">Sou médico</p>
+            <p className="text-sm text-gray-500 mt-0.5">Gero e gerencio prescrições para meus pacientes</p>
+          </div>
+          {loading === 'doctor' && (
+            <svg className="animate-spin w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSelect('pharmacy')}
+          disabled={!!loading}
+          className="flex items-center gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-primary/5 transition-all text-left disabled:opacity-60"
+        >
+          <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900">Represento uma farmácia</p>
+            <p className="text-sm text-gray-500 mt-0.5">Gerencio médicos parceiros e acompanho prescrições</p>
+          </div>
+          {loading === 'pharmacy' && (
+            <svg className="animate-spin w-5 h-5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -627,10 +707,20 @@ function Step4({ onBack: _onBack }: { onBack: () => void }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Onboarding() {
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | null>(null)
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
-  const { refreshProfile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
+  const navigate = useNavigate()
   const toast = useToast()
+
+  useEffect(() => {
+    if (!profile) return
+    if (profile.role === 'pharmacy_admin') {
+      navigate('/onboarding/farmacia', { replace: true })
+      return
+    }
+    setStep(prev => prev === null ? (profile.crm ? 1 : 0) : prev)
+  }, [profile, navigate])
 
   const handleStep1 = async (data: Parameters<typeof usersApi.onboardingStep1>[0]) => {
     try {
@@ -668,15 +758,33 @@ export default function Onboarding() {
     }
   }
 
+  if (step === null) {
+    return (
+      <div className="min-h-screen bg-bg-secondary flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Carregando...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-card w-full max-w-lg p-8">
         <div className="text-center mb-2">
           <h1 className="text-2xl font-bold text-primary">Medrion</h1>
         </div>
-        <p className="text-center text-xs text-gray-400 mb-6">Passo {step} de {TOTAL_STEPS}</p>
-        <StepIndicator current={step} />
+        {step > 0 && (
+          <>
+            <p className="text-center text-xs text-gray-400 mb-6">Passo {step} de {TOTAL_STEPS}</p>
+            <StepIndicator current={step} />
+          </>
+        )}
 
+        {step === 0 && (
+          <Step0
+            onDoctor={() => setStep(1)}
+            onPharmacy={() => navigate('/onboarding/farmacia', { replace: true })}
+          />
+        )}
         {step === 1 && <Step1 onNext={handleStep1} />}
         {step === 2 && <Step2 onNext={handleStep2} onBack={() => setStep(1)} step1Data={step1Data} />}
         {step === 3 && <Step3 onNext={handleStep3} onBack={() => setStep(2)} />}
