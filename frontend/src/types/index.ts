@@ -8,7 +8,7 @@ export interface User {
   specialty: string
   phone: string
   pharmacy_id?: string | null
-  subscription_status: 'trial' | 'active' | 'suspended' | 'cancelled' | 'pending'
+  subscription_status: 'trial' | 'active' | 'suspended' | 'cancelled'
   trial_ends_at: string | null
   trial_prescriptions_used: number
   pref_injectables: boolean
