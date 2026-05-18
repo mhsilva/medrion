@@ -189,11 +189,11 @@ async def list_pharmacy_doctors(
     return result.data or []
 
 
-@router.delete("/me/doctors/{doctor_user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/me/doctors/{doctor_user_id}", status_code=status.HTTP_200_OK)
 async def remove_pharmacy_doctor(
     doctor_user_id: str,
     current_user: dict = Depends(_require_pharmacy_admin),
-) -> None:
+) -> dict:
     user_id = current_user["user_id"]
     user_result = db.table("users").select("pharmacy_id").eq("id", user_id).single().execute()
     pharmacy_id = user_result.data and user_result.data.get("pharmacy_id")
@@ -205,6 +205,8 @@ async def remove_pharmacy_doctor(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Médico não encontrado nesta farmácia")
 
     db.table("pharmacy_doctors").update({"status": "removed"}).eq("pharmacy_id", pharmacy_id).eq("doctor_id", doctor_user_id).execute()
+    db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).eq("id", doctor_user_id).execute()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -539,12 +541,53 @@ async def accept_invite(
             detail="Este convite pertence a outro e-mail",
         )
 
+    # Block if doctor is already active in a different pharmacy
+    existing_link = (
+        db.table("pharmacy_doctors")
+        .select("pharmacy_id, status")
+        .eq("doctor_id", user_id)
+        .execute()
+    )
+    if existing_link.data:
+        ex = existing_link.data[0]
+        if ex["status"] == "active" and ex["pharmacy_id"] != invite["pharmacy_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Você já está vinculado a outra farmácia",
+            )
+
+    # Check seat availability
+    pharmacy_data = (
+        db.table("pharmacies")
+        .select("plan_seats")
+        .eq("id", invite["pharmacy_id"])
+        .single()
+        .execute()
+        .data
+    )
+    if pharmacy_data:
+        seats_used = (
+            db.table("pharmacy_doctors")
+            .select("id", count="exact")
+            .eq("pharmacy_id", invite["pharmacy_id"])
+            .eq("status", "active")
+            .execute()
+        )
+        if (seats_used.count or 0) >= (pharmacy_data.get("plan_seats") or 0):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Farmácia sem assentos disponíveis neste plano",
+            )
+
     db.table("pharmacy_doctors").upsert(
         {"pharmacy_id": invite["pharmacy_id"], "doctor_id": user_id, "status": "active"},
-        on_conflict="pharmacy_id,doctor_id",
+        on_conflict="doctor_id",
     ).execute()
 
-    db.table("users").update({"subscription_status": "active"}).eq("id", user_id).execute()
+    db.table("users").update({
+        "subscription_status": "active",
+        "pharmacy_id": invite["pharmacy_id"],
+    }).eq("id", user_id).execute()
 
     db.table("pharmacy_invites").update({"status": "accepted"}).eq("token", token).execute()
 

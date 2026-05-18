@@ -43,9 +43,15 @@ async def doctor_checkout(current_user: dict = Depends(get_current_user)) -> dic
     if user_row.get("role") not in ("doctor", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Apenas médicos diretos podem assinar")
 
-    user_full = db.table("users").select("email, name, stripe_customer_id").eq("id", user_id).single().execute().data
+    user_full = db.table("users").select("email, name, stripe_customer_id, pharmacy_id").eq("id", user_id).single().execute().data
     if not user_full:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+
+    if user_full.get("pharmacy_id"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Seu acesso já é coberto pela farmácia vinculada. Sem necessidade de assinatura individual.",
+        )
 
     success_url = f"{settings.FRONTEND_URL}/dashboard?checkout=success"
     cancel_url = f"{settings.FRONTEND_URL}/checkout?status=cancelled"
