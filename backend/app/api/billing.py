@@ -228,6 +228,8 @@ def _handle_checkout_completed(session: dict) -> None:
             "stripe_customer_id": customer_id,
             "subscription_status": "active",
         }).eq("id", client_reference_id).execute()
+        # Activate the pharmacy admin user
+        db.table("users").update({"subscription_status": "active"}).eq("pharmacy_id", client_reference_id).eq("role", "pharmacy_admin").execute()
     elif client_reference_id:
         db.table("users").update({
             "stripe_subscription_id": metadata_subscription_id,

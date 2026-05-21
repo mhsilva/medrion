@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { pharmacyApi, billingApi } from '../services/api'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
+import { useAuth } from '../hooks/useAuth'
 
 type Step = 1 | 2 | 3
 
@@ -276,6 +277,16 @@ function Step3Plans() {
 
 export default function PharmacyOnboarding() {
   const [step, setStep] = useState<Step>(1)
+  const { profile } = useAuth()
+
+  useEffect(() => {
+    if (!profile) return
+    if (profile.pharmacy_id && profile.onboarding_completed) {
+      setStep(3)
+    } else if (profile.pharmacy_id && !profile.onboarding_completed) {
+      setStep(2)
+    }
+  }, [profile])
 
   const handleStep1Done = () => setStep(2)
   const handleStep2Done = () => setStep(3)
