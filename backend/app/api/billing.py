@@ -208,6 +208,28 @@ def _reactivate_pharmacy_doctors(pharmacy_id: str) -> None:
     db.table("users").update({"subscription_status": "active"}).in_("id", doctor_ids).execute()
 
 
+def _cancel_pharmacy_doctors(pharmacy_id: str, pharmacy_name: str) -> None:
+    """Cancel all doctors linked to a pharmacy, clear their pharmacy_id, and cancel the admin."""
+    links = db.table("pharmacy_doctors").select("doctor_id").eq("pharmacy_id", pharmacy_id).eq("status", "active").execute()
+    doctor_ids = [r["doctor_id"] for r in (links.data or [])]
+    if doctor_ids:
+        db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).in_("id", doctor_ids).execute()
+        db.table("pharmacy_doctors").update({"status": "removed"}).eq("pharmacy_id", pharmacy_id).in_("doctor_id", doctor_ids).execute()
+        doctors = db.table("users").select("id, email").in_("id", doctor_ids).execute().data or []
+        for doc in doctors:
+            try:
+                db.table("notifications").insert({
+                    "user_id": doc["id"],
+                    "type": "access_suspended",
+                    "message": json.dumps({"text": f"Sua conta na farmácia {pharmacy_name} foi encerrada."}),
+                    "read": False,
+                }).execute()
+            except Exception:
+                logger.exception("Failed cancel notification for %s", doc.get("id"))
+    # Cancel and unlink the pharmacy admin too
+    db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).eq("pharmacy_id", pharmacy_id).eq("role", "pharmacy_admin").execute()
+
+
 def _handle_checkout_completed(session: dict) -> None:
     """Called when a Checkout Session completes successfully — links subscription to user/pharmacy."""
     metadata_subscription_id = session.get("subscription")
@@ -265,6 +287,8 @@ def _handle_subscription_updated(subscription: dict) -> None:
         db.table("pharmacies").update({"subscription_status": pharmacy_status}).eq("id", pharmacy["id"]).execute()
         if pharmacy_status == "suspended" and previous != "suspended":
             _suspend_pharmacy_doctors(pharmacy["id"], pharmacy.get("name", "Farmácia"))
+        elif pharmacy_status == "cancelled" and previous != "cancelled":
+            _cancel_pharmacy_doctors(pharmacy["id"], pharmacy.get("name", "Farmácia"))
         elif pharmacy_status == "active" and previous == "suspended":
             _reactivate_pharmacy_doctors(pharmacy["id"])
         return
