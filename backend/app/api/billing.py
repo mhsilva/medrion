@@ -302,7 +302,7 @@ def _handle_subscription_updated(subscription: dict) -> None:
         db.table("pharmacies").update({"subscription_status": pharmacy_status}).eq("id", pharmacy["id"]).execute()
         if pharmacy_status == "suspended" and previous != "suspended":
             _suspend_pharmacy_doctors(pharmacy["id"], pharmacy.get("name", "Farmácia"))
-        elif pharmacy_status == "cancelled" and previous != "cancelled":
+        elif pharmacy_status == "cancelled":
             _cancel_pharmacy_doctors(pharmacy["id"], pharmacy.get("name", "Farmácia"))
         elif pharmacy_status == "active" and previous == "suspended":
             _reactivate_pharmacy_doctors(pharmacy["id"])
