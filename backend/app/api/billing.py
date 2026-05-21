@@ -277,8 +277,15 @@ def _handle_subscription_updated(subscription: dict) -> None:
     else:
         return  # incomplete: ignore until Stripe finalizes
 
-    # Pharmacy?
+    # Pharmacy? Try stripe_subscription_id first, fall back to metadata
     pharmacy_match = db.table("pharmacies").select("id, name, subscription_status").eq("stripe_subscription_id", sub_id).execute()
+    if not pharmacy_match.data:
+        pharmacy_id_meta = _pharmacy_id_from_subscription(subscription)
+        if pharmacy_id_meta:
+            pharmacy_match = db.table("pharmacies").select("id, name, subscription_status").eq("id", pharmacy_id_meta).execute()
+            if pharmacy_match.data:
+                # Store the subscription id for future lookups
+                db.table("pharmacies").update({"stripe_subscription_id": sub_id}).eq("id", pharmacy_id_meta).execute()
     if pharmacy_match.data:
         pharmacy = pharmacy_match.data[0]
         previous = pharmacy.get("subscription_status")
