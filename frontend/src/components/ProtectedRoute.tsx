@@ -41,6 +41,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/onboarding/farmacia" replace />
   }
 
+  if (
+    profile?.role === 'doctor' &&
+    profile?.subscription_status === 'trial' &&
+    profile?.trial_ends_at &&
+    new Date(profile.trial_ends_at) < new Date() &&
+    location.pathname !== '/checkout'
+  ) {
+    return <Navigate to="/checkout" replace />
+  }
+
   // pharmacy_admin sem onboarding completo pode chegar em /onboarding/farmacia — ok
   // pharmacy_admin com onboarding completo tentando acessar rotas de médico → redireciona
   if (profile?.role === 'pharmacy_admin' && allowedRoles && !allowedRoles.includes('pharmacy_admin')) {
