@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { pharmacyApi, notificationsApi } from '../services/api'
+import { pharmacyApi, notificationsApi, billingApi } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -439,6 +439,70 @@ function PrescriptionsPanel({
   )
 }
 
+// ─── Upgrade Card ─────────────────────────────────────────────────────────────
+
+const UPGRADE_PLANS = [
+  { seats: 10 as const, price: 2900 },
+  { seats: 20 as const, price: 4800 },
+  { seats: 30 as const, price: 6300 },
+]
+
+function UpgradeCard({ currentSeats }: { currentSeats: 0 | 10 | 20 | 30 }) {
+  const [loading, setLoading] = useState<10 | 20 | 30 | null>(null)
+  const toast = useToast()
+
+  const upgrades = UPGRADE_PLANS.filter(p => p.seats > currentSeats)
+
+  const handleUpgrade = async (seats: 10 | 20 | 30) => {
+    setLoading(seats)
+    try {
+      const { url } = await billingApi.pharmacyCheckout(seats)
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao iniciar checkout')
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-semibold text-gray-900">Plano atual</h3>
+          <p className="text-sm text-gray-500">{currentSeats > 0 ? `${currentSeats} assentos` : 'Sem plano ativo'}</p>
+        </div>
+        {currentSeats >= 30 && (
+          <span className="text-xs bg-primary/10 text-primary font-medium px-3 py-1 rounded-full">Plano máximo</span>
+        )}
+      </div>
+      {upgrades.length > 0 && (
+        <>
+          <p className="text-sm text-gray-500 mb-3">Fazer upgrade:</p>
+          <div className="flex flex-wrap gap-3">
+            {upgrades.map(plan => (
+              <button
+                key={plan.seats}
+                onClick={() => handleUpgrade(plan.seats)}
+                disabled={loading !== null}
+                className="flex items-center gap-3 border border-gray-200 rounded-lg px-4 py-3 hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50"
+              >
+                <div className="text-left">
+                  <p className="font-semibold text-gray-900 text-sm">{plan.seats} assentos</p>
+                  <p className="text-xs text-gray-500">R$ {plan.price.toLocaleString('pt-BR')}/mês</p>
+                </div>
+                {loading === plan.seats
+                  ? <span className="text-xs text-gray-400">...</span>
+                  : <span className="text-primary text-sm">→</span>
+                }
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function PharmacyDashboard() {
@@ -572,11 +636,8 @@ export default function PharmacyDashboard() {
           </div>
         </div>
 
-        {/* Pagamento placeholder */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-1">Pagamento</h3>
-          <p className="text-sm text-gray-500">Gestão de assinatura disponível em breve.</p>
-        </div>
+        {/* Upgrade de plano */}
+        <UpgradeCard currentSeats={(pharmacy?.plan_seats ?? 0) as 0 | 10 | 20 | 30} />
       </main>
     </div>
   )
