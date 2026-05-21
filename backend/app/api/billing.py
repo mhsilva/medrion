@@ -210,24 +210,32 @@ def _reactivate_pharmacy_doctors(pharmacy_id: str) -> None:
 
 def _cancel_pharmacy_doctors(pharmacy_id: str, pharmacy_name: str) -> None:
     """Cancel all doctors linked to a pharmacy, clear their pharmacy_id, and cancel the admin."""
-    links = db.table("pharmacy_doctors").select("doctor_id").eq("pharmacy_id", pharmacy_id).eq("status", "active").execute()
-    doctor_ids = [r["doctor_id"] for r in (links.data or [])]
-    if doctor_ids:
-        db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).in_("id", doctor_ids).execute()
-        db.table("pharmacy_doctors").update({"status": "removed"}).eq("pharmacy_id", pharmacy_id).in_("doctor_id", doctor_ids).execute()
-        doctors = db.table("users").select("id, email").in_("id", doctor_ids).execute().data or []
-        for doc in doctors:
-            try:
-                db.table("notifications").insert({
-                    "user_id": doc["id"],
-                    "type": "access_suspended",
-                    "message": json.dumps({"text": f"Sua conta na farmácia {pharmacy_name} foi encerrada."}),
-                    "read": False,
-                }).execute()
-            except Exception:
-                logger.exception("Failed cancel notification for %s", doc.get("id"))
-    # Cancel and unlink the pharmacy admin too
-    db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).eq("pharmacy_id", pharmacy_id).eq("role", "pharmacy_admin").execute()
+    logger.info("Cancelling pharmacy %s and all linked users", pharmacy_id)
+
+    # Cancel admin first — isolated so pharmacy_doctors errors don't block this
+    admin_result = db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).eq("pharmacy_id", pharmacy_id).eq("role", "pharmacy_admin").execute()
+    logger.info("Pharmacy admin cancel result: %s", admin_result.data)
+
+    try:
+        links = db.table("pharmacy_doctors").select("doctor_id").eq("pharmacy_id", pharmacy_id).eq("status", "active").execute()
+        doctor_ids = [r["doctor_id"] for r in (links.data or [])]
+        logger.info("Linked doctors to cancel: %s", doctor_ids)
+        if doctor_ids:
+            db.table("users").update({"subscription_status": "cancelled", "pharmacy_id": None}).in_("id", doctor_ids).execute()
+            db.table("pharmacy_doctors").update({"status": "removed"}).eq("pharmacy_id", pharmacy_id).in_("doctor_id", doctor_ids).execute()
+            doctors = db.table("users").select("id, email").in_("id", doctor_ids).execute().data or []
+            for doc in doctors:
+                try:
+                    db.table("notifications").insert({
+                        "user_id": doc["id"],
+                        "type": "access_suspended",
+                        "message": json.dumps({"text": f"Sua conta na farmácia {pharmacy_name} foi encerrada."}),
+                        "read": False,
+                    }).execute()
+                except Exception:
+                    logger.exception("Failed cancel notification for %s", doc.get("id"))
+    except Exception:
+        logger.exception("Failed to cancel pharmacy_doctors for pharmacy %s", pharmacy_id)
 
 
 def _handle_checkout_completed(session: dict) -> None:
