@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useToast } from '../components/ui/Toast'
 import { useAuth } from '../hooks/useAuth'
+import { PageLoader } from '../components/ui/LoadingSpinner'
 
 type Step = 1 | 2 | 3
 
@@ -276,20 +277,24 @@ function Step3Plans() {
 }
 
 export default function PharmacyOnboarding() {
-  const [step, setStep] = useState<Step>(1)
-  const { profile } = useAuth()
+  const { profile, profileLoading } = useAuth()
+  const [step, setStep] = useState<Step | null>(null)
 
   useEffect(() => {
-    if (!profile) return
-    if (profile.pharmacy_id && profile.onboarding_completed) {
+    if (profileLoading) return
+    if (profile?.pharmacy_id && profile?.onboarding_completed) {
       setStep(3)
-    } else if (profile.pharmacy_id && !profile.onboarding_completed) {
+    } else if (profile?.pharmacy_id && !profile?.onboarding_completed) {
       setStep(2)
+    } else {
+      setStep(1)
     }
-  }, [profile])
+  }, [profile, profileLoading])
 
   const handleStep1Done = () => setStep(2)
   const handleStep2Done = () => setStep(3)
+
+  if (step === null) return <PageLoader />
 
   return (
     <div className="min-h-screen bg-bg-secondary flex items-center justify-center p-4">
